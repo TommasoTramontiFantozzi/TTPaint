@@ -1,0 +1,79 @@
+object Form2: TForm2
+  Left = 601
+  Height = 720
+  Top = 120
+  Width = 1060
+  BorderIcons = [biMinimize]
+  BorderStyle = bsSingle
+  Caption = 'TTPaint Help'
+  ClientHeight = 720
+  ClientWidth = 1060
+  PopupMode = pmExplicit
+  ShowInTaskBar = stNever
+  LCLVersion = '4.8.0.0'
+  OnCreate = FormCreate
+  OnShow = FormShow
+  OnHide = FormHide
+  object Panel1: TPanel
+    Left = 0
+    Height = 41
+    Top = 0
+    Width = 1060
+    Align = alTop
+    ClientHeight = 41
+    ClientWidth = 1060
+    TabOrder = 0
+    object Label1: TLabel
+      Left = 1
+      Height = 39
+      Top = 1
+      Width = 1058
+      Align = alClient
+      Alignment = taCenter
+      AutoSize = False
+      Caption = 'TTPaint Help'
+      Font.Height = -18
+      Font.Style = [fsBold]
+      Layout = tlCenter
+      ParentColor = False
+      ParentFont = False
+    end
+  end
+  object ListBox1: TListBox
+    Left = 0
+    Height = 679
+    Top = 41
+    Width = 200
+    Align = alLeft
+    Items.Strings = (
+      'Main Purpose'
+      'File Formats'
+      'Geometric Tools'
+      'Artistic Tools'
+      'Raster Tools'
+      'Actions'
+      'Constraints'
+      'Materials'
+      'Colors'
+      'Quotes'
+      'References'
+      'Operators'
+      'SVG Snippets'
+      'Handles'
+      'Right Click'
+      'SVG Snippets Language'
+      'Filters Language'
+    )
+    ItemHeight = 22
+    TabOrder = 1
+    OnClick = ListBox1Click
+  end
+  object Panel2: TPanel
+    Left = 200
+    Height = 679
+    Top = 41
+    Width = 860
+    Align = alClient
+    TabOrder = 2
+  end
+end

@@ -1,0 +1,314 @@
+<text:style bold="true">SVG Snippets Language</text:style>
+
+An SVG snippet is an SVG drawing with a few extra instructions that make it<text:style bold="true"></text:style>
+<text:style bold="true">parametric</text:style>: the drawing is calculated from numbers, colours and tables of data (CSV)
+that can be changed afterwards in the Properties panel. A snippet is plain text. It
+is written in the SVG library editor and placed on the page with the buttons of the
+SVG Snippets panel: two clicks, which draw the box that the drawing must fill. When
+the snippet is placed, the program expands it into an ordinary SVG and imports it as
+a group of objects; changing a parameter later expands it again and replaces the
+group (undo and redo work, and the size and the position are kept).
+
+A snippet without any instruction is just an SVG, and every standard SVG works. The
+only thing to know is that, in the SVG part, every "{" starts an instruction (see
+Braces).
+
+<text:style bold="true">The library editor</text:style>
+
+The snippets are in the library: Edit > SVG Library... opens its editor. At the left
+there is the list of the snippets, with the ones that are built in first and then
+yours. For the selected one you can change its name and its icon (a PNG chosen with
+"Choose PNG...", or drawn from the SVG itself with "Draw from the SVG") and write
+its text in the big box. Add makes a new snippet, Remove deletes the selected one,
+OK keeps everything and makes the buttons of the panel again, Cancel throws the
+changes away. The built-in snippets "Pie graph", "Line graph", "Scatter XY" and "Table" are
+complete examples of everything that follows: open them in the editor to read them.
+
+<text:style bold="true">1. Structure of a snippet</text:style>
+
+    @param ...        (zero or more parameter lines)
+    @paramtext ...    (zero or more table lines)
+    <svg ...> ... </svg>
+
+- The parameter lines come first. The first line that does not start with @param or
+  @paramtext (blank lines are ignored) starts the SVG.
+- Parameter names: a letter or "_", then letters, digits or "_". They are not case
+  sensitive (Size, size and SIZE are the same).
+- The order of the parameter lines is the order in the Properties panel.
+
+<text:style bold="true">2. Number parameters</text:style>
+
+    @param Name = value [min, max, step] "Caption"
+
+- Name is the name that the SVG uses, in braces.
+- value is the default value (a number).
+- [min, max] or [min, max, step] is optional: it is the range of the slider and the
+  step of the spin box. The default is always allowed even if outside the range (the
+  range is widened). Without it: min 0 (or 10 times the default if this is
+  negative), max 10 times the default (at least 1), step 1 for integers and 0.1 for
+  decimals.
+- "Caption" is optional: it is the label shown in the Properties panel (by default,
+  the name).
+
+    @param Scale = 10 [2, 50, 0.5] "Pixels per tick"
+    @param Ticks = 20 [1, 200, 1] "Number of ticks"
+    @param Grid = 1 [0, 1, 1] "Grid lines (1 = yes)"
+
+A yes/no choice is a parameter with range [0, 1, 1], tested with {if Grid = 1}.
+
+<text:style bold="true">3. Colour parameters</text:style>
+
+    @param Name = #rrggbb "Caption"       (also #rgb)
+
+It is shown with a colour button. Where {Name} is used it is replaced by the text
+#rrggbb, so it can be used directly in attributes:
+
+    @param Back = #f6e7a6 "Background colour"
+    <rect width="100" height="50" fill="{Back}"/>
+
+<text:style bold="true">4. Table parameters (CSV)</text:style>
+
+    @paramtext Name "Caption"
+
+It creates a text box in the Properties panel (with an OK button below it) where the
+user pastes or writes CSV data; the drawing is recalculated when OK is pressed. When
+the snippet is placed, after the second click a dialog asks for the data. If it is
+left empty (or cancelled) the snippet is made with empty data and completed later,
+so it must work with empty data too: use {if rows(Data) > 0} ... {else} a
+placeholder text {end}.
+
+The caption may contain the two characters \n (backslash, n) to start a new line.
+The first line is the label above the text box in the Properties; the whole text is
+shown in the dialog that asks for the data, so it is the place for an example of how
+the data must be organised:
+
+    @paramtext Data "CSV data: label;value\nExample:\nFruit;Sales\nApples;40"
+
+The data (CSV):
+
+- one row per line; blank lines are ignored.
+- the separator is a comma, a semicolon or a TAB. It is detected from the first
+  non-empty line (the one it contains most). Data pasted from a spreadsheet use TAB.
+- a field may be in "double quotes" (then it may contain the separator; "" inside
+  quotes is a quote).
+- numbers have a decimal point (3.5). A decimal comma (3,5) is accepted only when
+  the separator is not a comma (use ; or TAB). A final % is ignored (45% = 45).
+  Spaces around the fields are removed.
+- a cell that is not a number counts as text (for num() it is 0).
+- the header row is optional: see hdr().
+- rows and columns are counted from 0.
+- the data are stored inside the object, so they survive saving, undo and redo.
+
+Where the name of a table is the first argument of a table function, it stands for
+the table. Do not use it alone in an expression.
+
+<text:style bold="true">5. Expressions</text:style>
+
+{expression} is replaced by the value of the expression, written as an integer when
+it is one (3), otherwise with up to 4 decimals (3.1416), always with a decimal
+point.
+
+    <rect width="{W * 2 + 10}" height="{H}"/>
+
+- Numbers: 12 3.5 .5 1e3
+- Names: parameters, loop variables, {let} variables, pi
+- Operators: + - * / mod and the unary - +; the comparisons = <> < > <= >= (the
+  result is 1 or 0); and, or, not (0 is false, anything else is true); parentheses.
+- Precedence, from the weakest: or, and, comparisons, + -, * / mod, unary. A
+  division or a mod by zero is an error, and so is the sqrt of a negative number.
+
+<text:style bold="true">Functions</text:style> (the names are not case sensitive):
+
+- sin(a) cos(a) tan(a): the angle is in degrees.
+- sqrt(x) abs(x)
+- round(x) floor(x) ceil(x)
+- min(a, b) max(a, b): exactly two arguments.
+
+<text:style bold="true">Table functions</text:style> (T is the name of a @paramtext parameter):
+
+- rows(T): the number of non-empty rows.
+- cols(T): the number of columns (of the longest row).
+- hdr(T): 1 if the first row looks like a header, else 0. It is a header when some
+  cell of it, from the second column on, is text and not a number (a table with one
+  column: when the first cell is text). So "x;A;B" is a header, "1;2;3" is not. A
+  header made only of numbers (years...) in the second and following columns is not
+  detected.
+- num(T, r, c): the number in row r, column c (0 if it is text, empty or outside the
+  table).
+- isnum(T, r, c): 1 if that cell is a number, else 0.
+- sum(T, c): the sum of the numbers of column c.
+- csum(T, c, r): the sum of the numbers of column c in the rows before row r (a
+  running total: where a pie slice starts).
+- vmin(T, c) and vmax(T, c): the smallest and the largest number of column c. With c
+  = -1, sum, csum, vmin and vmax use all the columns from the second on (not the
+  first, which holds the labels or the x). Text cells are ignored (that is why the
+  header row does no harm), but a header with numeric names would.
+- maxlen(T, c): the number of characters of the longest cell of column c.
+- tlen(T, r, c): the number of characters of the cell in row r, column c (a column of
+  numbers can be aligned to the right with it, as the built-in "Table" does).
+- nicestep(range, n): a "round" step (1, 2 or 5 times a power of ten) that cuts the
+  range in about n parts; for the axes. The result is 1 if range is 0 or less.
+
+Typical use of a header: the data start at row h = hdr(T), so the number of data
+rows is rows(T) - h and the data row j is row j + h.
+
+<text:style bold="true">6. Directives</text:style>
+
+A directive is written in braces inside the SVG part. Directives can be anywhere in
+the text: between tags, inside attributes, inside values.
+
+- {expression}: see above.
+- {Name}: for a colour parameter, #rrggbb.
+
+<text:style bold="true">Loops</text:style>:
+
+    {for i = a to b}  ...  {end}
+    {for i = a to b step s}  ...  {end}
+
+It repeats what is inside: i takes a, a+s, a+2s ... while it is not over b (or not
+under b if s is negative). a, b and s are expressions; the default step is 1. If a
+is over b (with a positive step) it repeats zero times, so {for j = 0 to n - 1} with
+n = 0 is fine. The variable can be used in the expressions that follow, also after
+the loop (it keeps the last value). Loops can be nested. Limits: 5000 repetitions
+for each loop, 20000 in all, and 3 MB of result.
+
+<text:style bold="true">Conditions</text:style>:
+
+    {if condition}  ...  {end}
+    {if condition}  ...  {else}  ...  {end}
+
+It keeps the first part when the expression is not 0, otherwise the second part (if
+any). It can be nested, also inside loops. Write the condition with parentheses when
+needed: {if (h = 1) and (m > 1)}.
+
+<text:style bold="true">Variables</text:style>:
+
+    {let name = expression}
+
+It keeps a value in a variable for the rest of the snippet. It can be used again to
+change the value (also inside {if}, to correct a value). The name may also be the
+name of a parameter (it overrides it from then on). A {let} writes nothing in the
+output.
+
+    {let hi = max(vmax(Data, -1), 1)}
+    {if y1 <= y0}{let y1 = y0 + 1}{end}
+
+<text:style bold="true">Text of a cell</text:style>:
+
+    {cell(T, r, c)}
+
+It is the text of the cell (row r, column c of the table T), ready to be put in the
+SVG (the characters & < > " are escaped). It writes nothing if the cell does not
+exist. For labels:
+
+    <text x="10" y="20">{cell(Data, j + h, 0)}</text>
+
+<text:style bold="true">Colours</text:style>:
+
+    {hsl(h, s, l)}
+
+It is a colour #rrggbb. h is the hue in degrees (0 red, 120 green, 240 blue; any
+value is accepted, it wraps), s the saturation 0..100 and l the lightness 0..100.
+For series that need many distinct colours:
+
+    fill="{hsl(k * 137.5 + 205, 62, 55)}"      (137.5 = golden angle)
+
+Blocks ({for}, {if}) must be closed by {end}; {else} only inside {if}. A block
+cannot start in the middle of another one and end outside it.
+
+<text:style bold="true">7. The SVG part</text:style>
+
+- It must be a complete <svg width=".." height=".." ...> ... </svg> with
+  xmlns="http://www.w3.org/2000/svg". Write width and height (or a viewBox): they
+  are the natural size of the snippet; the snippet is stretched to the box that the
+  user draws with the two clicks.
+- The elements understood are line, polyline, polygon, rect, circle, ellipse, path
+  (curves and true elliptical arcs A/a included), text and g, with fill, stroke,
+  stroke-width, opacity, transform, gradients, font-size, font-family and so on,
+  like any SVG imported in TTPaint. Everything that the program does not import from
+  an SVG is ignored here too.
+- text-anchor is not supported: the text is left aligned at x. To centre or
+  right-align a label, shift x by an estimate of its width (for instance x - 6 *
+  length). The snippet cannot measure the text.
+- The drawing is stretched with the box: a pie stretched to a rectangle becomes an
+  ellipse (the text is stretched too).
+- The order of the elements is the order of drawing (the first is at the bottom).
+
+<text:style bold="true">8. Braces</text:style>
+
+Every "{" in the SVG part starts a directive, up to the next "}". If it is not a
+directive, the text between the braces is evaluated as an expression, and an error
+is reported ("unknown name", "unexpected ..."). So:
+
+- do not use CSS inside <style> or JavaScript with braces in a snippet; use
+  attributes (fill="...") instead.
+- to write a literal brace there is no escape: avoid it (in text labels use
+  parentheses or brackets instead).
+- the error message is shown in the status bar when the snippet is placed or edited,
+  and nothing is placed.
+
+<text:style bold="true">9. How the data are kept</text:style>
+
+A snippet object stores the source of the snippet, the values of the parameters, the
+texts of the tables and the stretch of the box. Because the source is stored with
+the object, changing the library later does not change the snippets already placed.
+
+<text:style bold="true">10. Complete examples</text:style>
+
+<text:style bold="true">A ruler</text:style> (numbers and a colour). A comparison is worth 1 or 0, so (i mod 5 = 0) can
+be used inside an expression: every fifth tick is longer.
+
+    @param Scale = 10 [2, 50, 0.5] "Pixels per tick"
+    @param Ticks = 20 [1, 200, 1] "Number of ticks"
+    @param Back = #f6e7a6 "Background colour"
+    <svg width="{Ticks * Scale + 20}" height="40" xmlns="http://www.w3.org/2000/svg">
+     <rect x="0" y="0" width="{Ticks * Scale + 20}" height="40" fill="{Back}"
+           stroke="#333333"/>
+    {for i = 0 to Ticks}
+     <line x1="{10 + i * Scale}" y1="0" x2="{10 + i * Scale}"
+           y2="{14 + 12 * (i mod 5 = 0)}" stroke="#333333"/>
+    {end}
+    </svg>
+
+<text:style bold="true">A bar chart from a table</text:style>:
+
+    @paramtext Data "CSV data: label;value\nExample:\nMon;4\nTue;7\nWed;5"
+    <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+    {let h = hdr(Data)}
+    {let n = rows(Data) - h}
+    {let top = max(vmax(Data, -1), 1) * 1.1}
+    {for j = 0 to n - 1}
+     <rect x="{20 + j * 40}" y="{180 - num(Data, j + h, 1) / top * 160}"
+           width="30" height="{num(Data, j + h, 1) / top * 160}"
+           fill="{hsl(j * 50, 60, 55)}"/>
+     <text x="{22 + j * 40}" y="195" font-size="11">{cell(Data, j + h, 0)}</text>
+    {end}
+    {if n = 0}<text x="80" y="100" font-size="14" fill="#888888">
+     Paste the CSV data</text>{end}
+    </svg>
+
+<text:style bold="true">Pie slices</text:style> (a running total with csum), with h, n, cx, cy and r defined before with
+{let}:
+
+    {let tot = sum(Data, 1)}
+    {for k = 0 to n - 1}
+    {let a0 = csum(Data, 1, k + h) / tot * 360 - 90}
+    {let a1 = (csum(Data, 1, k + h) + num(Data, k + h, 1)) / tot * 360 - 90}
+    <path d="M {cx} {cy} L {cx + r * cos(a0)} {cy + r * sin(a0)}
+             A {r} {r} 0 {a1 - a0 > 180} 1 {cx + r * cos(a1)} {cy + r * sin(a1)} Z"
+          fill="{hsl(k * 137.5 + 205, 62, 55)}"/>
+    {end}
+
+The large-arc flag of an SVG arc is 0 or 1: {a1 - a0 > 180} gives exactly that. A
+slice that is the whole circle needs two arcs.
+
+<text:style bold="true">11. Limits and good habits</text:style>
+
+- Write the snippet so that it works with empty data and with 1 row.
+- Avoid dividing by something that can be 0 (a table with all zero values): use
+  max(x, 1) or an {if}.
+- Negative values are not handled by the built-in pie graph.
+- Stay below 5000 repetitions per loop and 3 MB of SVG.
+- The same name is the same variable whatever the case. The {let} names and the loop
+  variables share the names of the parameters.
+

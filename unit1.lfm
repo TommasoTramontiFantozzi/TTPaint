@@ -1,0 +1,631 @@
+object Form1: TForm1
+  Left = 371
+  Height = 652
+  Top = 94
+  Width = 1359
+  Caption = 'TTPaint'
+  ClientHeight = 652
+  ClientWidth = 1359
+  KeyPreview = True
+  Menu = MainMenu1
+  LCLVersion = '4.0.0.4'
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnKeyDown = FormKeyDown
+  object Panel1: TPanel
+    Left = 0
+    Height = 128
+    Top = 0
+    Width = 1359
+    Align = alTop
+    ClientHeight = 128
+    ClientWidth = 1359
+    TabOrder = 0
+    object ToolsPanel: TPanel
+      Left = 1
+      Height = 126
+      Top = 1
+      Width = 190
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 190
+      TabOrder = 0
+      object toolSelect: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolVectorize: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object toolLine: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolPolygon: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolArrow: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 26
+        Width = 38
+        Visible = False
+      end
+      object toolEllipse: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolRect: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolSVGcode: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 90
+        Width = 38
+        Visible = False
+      end
+      object toolEllipticalArc: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolPolyLine: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object label1: TLabel
+        Left = 50
+        Height = 17
+        Top = 8
+        Width = 109
+        Caption = 'Geometric Tools'
+      end
+      object toolSpline: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object toolText: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+    end
+    object ArtisticPanel: TPanel
+      Left = 191
+      Height = 126
+      Top = 1
+      Width = 96
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 96
+      TabOrder = 6
+      object toolPen: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolMarker: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolAirbrush: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolBucket: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object LabelArtistic: TLabel
+        Left = 4
+        Height = 17
+        Top = 8
+        Width = 87
+        Caption = 'Artistic Tools'
+      end
+    end
+    object ActionsPanel: TPanel
+      Left = 287
+      Height = 126
+      Top = 1
+      Width = 214
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 214
+      TabOrder = 5
+      object toolTrim: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolExtend: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolBreak: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolOffset: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolMirror: TSpeedButton
+        Left = 168
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object toolFillet: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolChamfer: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolArray: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolRotate: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolScale: TSpeedButton
+        Left = 168
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object toolVertex: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object toolJoin: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object toolPathPoint: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object LabelActions: TLabel
+        Left = 84
+        Height = 17
+        Top = 8
+        Width = 50
+        Caption = 'Actions'
+      end
+    end
+    object ConstraintsPanel: TPanel
+      Left = 501
+      Height = 126
+      Top = 1
+      Width = 176
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 176
+      TabOrder = 1
+      object constFixed: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object constPerpendicular: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object constCoradial: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object constCoaxial: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object constMidPoint: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object constIntersection: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object constParallel: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object constEqual: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object Label3: TLabel
+        Left = 54
+        Height = 17
+        Top = 8
+        Width = 76
+        Caption = 'Constraints'
+      end
+      object constVertical: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object constTangent: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object constHoritzontal: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object constSimmetry: TSpeedButton
+        Left = 128
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+    end
+    object ColorPanel: TPanel
+      Left = 677
+      Height = 126
+      Top = 1
+      Width = 136
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 136
+      TabOrder = 2
+      object colorButton1: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object colorButton3: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object colorButton5: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object colorButton7: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object colorButton2: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object colorButton4: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object colorButton6: TSpeedButton
+        Left = 88
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object colorButton8: TSpeedButton
+        Left = 48
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object Label4: TLabel
+        Left = 48
+        Height = 17
+        Top = 8
+        Width = 43
+        Caption = 'Colors'
+      end
+    end
+    object QuotePanel: TPanel
+      Left = 813
+      Height = 126
+      Top = 1
+      Width = 58
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 58
+      TabOrder = 3
+      object quoteRadial: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object quoteAngular: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 90
+        Width = 38
+      end
+      object quoteLinear: TSpeedButton
+        Left = 8
+        Height = 31
+        Top = 58
+        Width = 38
+      end
+      object Label5: TLabel
+        Left = 6
+        Height = 17
+        Top = 8
+        Width = 48
+        Caption = 'Quotes'
+      end
+    end
+    object ReferencePanel: TPanel
+      Left = 871
+      Height = 126
+      Top = 1
+      Width = 80
+      Align = alLeft
+      ClientHeight = 126
+      ClientWidth = 80
+      TabOrder = 4
+      object referenceLine: TSpeedButton
+        Left = 20
+        Height = 31
+        Top = 26
+        Width = 38
+      end
+      object Label6: TLabel
+        Left = 6
+        Height = 17
+        Top = 8
+        Width = 74
+        Caption = 'References'
+      end
+    end
+  end
+  object ScrollBox1: TScrollBox
+    Left = 0
+    Height = 505
+    Top = 128
+    Width = 1059
+    HorzScrollBar.Increment = 1
+    HorzScrollBar.Page = 1
+    HorzScrollBar.Smooth = True
+    HorzScrollBar.Tracking = True
+    HorzScrollBar.Visible = False
+    VertScrollBar.Increment = 1
+    VertScrollBar.Page = 1
+    VertScrollBar.Smooth = True
+    VertScrollBar.Tracking = True
+    VertScrollBar.Visible = False
+    Align = alClient
+    ClientHeight = 503
+    ClientWidth = 1057
+    TabOrder = 1
+    object PaintBox1: TPaintBox
+      Left = 0
+      Height = 438
+      Top = 0
+      Width = 775
+      OnMouseDown = PaintBox1MouseDown
+      OnMouseLeave = PaintBox1MouseLeave
+      OnMouseMove = PaintBox1MouseMove
+      OnMouseUp = PaintBox1MouseUp
+      OnPaint = PaintBox1Paint
+    end
+  end
+  object StatusBar1: TStatusBar
+    Left = 0
+    Height = 19
+    Top = 633
+    Width = 1359
+    Panels = <    
+      item
+        Width = 50
+      end>
+    SimplePanel = False
+  end
+  object PropertiesPanel: TPanel
+    Left = 1059
+    Height = 505
+    Top = 128
+    Width = 300
+    Align = alRight
+    ClientHeight = 505
+    ClientWidth = 300
+    TabOrder = 3
+    object Label2: TLabel
+      Left = 1
+      Height = 24
+      Top = 1
+      Width = 298
+      Align = alTop
+      Alignment = taCenter
+      AutoSize = False
+      Caption = 'Properties'
+      Layout = tlCenter
+    end
+    object ScrollBox2: TScrollBox
+      Left = 1
+      Height = 479
+      Top = 25
+      Width = 298
+      HorzScrollBar.Page = 1
+      VertScrollBar.Page = 1
+      Align = alClient
+      TabOrder = 0
+    end
+  end
+  object PopupMenu1: TPopupMenu
+    Left = 402
+    Top = 153
+    object MenuItem1: TMenuItem
+      Caption = 'Color'
+    end
+  end
+  object ColorDialog1: TColorDialog
+    Color = clBlack
+    CustomColors.Strings = (
+      'ColorA=000000'
+      'ColorB=000080'
+      'ColorC=008000'
+      'ColorD=008080'
+      'ColorE=800000'
+      'ColorF=800080'
+      'ColorG=808000'
+      'ColorH=808080'
+      'ColorI=C0C0C0'
+      'ColorJ=0000FF'
+      'ColorK=00FF00'
+      'ColorL=00FFFF'
+      'ColorM=FF0000'
+      'ColorN=FF00FF'
+      'ColorO=FFFF00'
+      'ColorP=FFFFFF'
+      'ColorQ=C0DCC0'
+      'ColorR=F0CAA6'
+      'ColorS=F0FBFF'
+      'ColorT=A4A0A0'
+    )
+    Left = 476
+    Top = 162
+  end
+  object MainMenu1: TMainMenu
+    Left = 595
+    Top = 162
+    object MenuItem2: TMenuItem
+      Caption = 'File'
+      object MenuItem3: TMenuItem
+        Caption = 'Open'
+      end
+      object MenuItem4: TMenuItem
+        Caption = 'Save'
+      end
+      object MenuItem5: TMenuItem
+        Caption = 'Save As...'
+      end
+      object MenuItem6: TMenuItem
+        Caption = 'Create Config File'
+      end
+      object MenuItem7: TMenuItem
+        Caption = 'Exit'
+      end
+    end
+    object MenuItem8: TMenuItem
+      Caption = 'Edit'
+      object MenuItem9: TMenuItem
+        Caption = 'Copy'
+      end
+      object MenuItem10: TMenuItem
+        Caption = 'Cut'
+      end
+      object MenuItem11: TMenuItem
+        Caption = 'Paste as Object'
+      end
+      object MenuItem12: TMenuItem
+        Caption = 'Paste as Raster'
+      end
+      object MenuItem13: TMenuItem
+        Caption = 'Settings'
+      end
+      object MenuItem14: TMenuItem
+        Caption = 'SVG Code'
+      end
+    end
+    object MenuItem15: TMenuItem
+      Caption = 'Help'
+      object MenuItem16: TMenuItem
+        Caption = 'Main Contents'
+        OnClick = MenuItem16Click
+      end
+      object MenuItem17: TMenuItem
+        Caption = 'SVG Snippets'
+      end
+      object MenuItem18: TMenuItem
+        Caption = 'Filters'
+      end
+      object MenuItem19: TMenuItem
+        Caption = 'About'
+        OnClick = MenuItem19Click
+      end
+    end
+  end
+end

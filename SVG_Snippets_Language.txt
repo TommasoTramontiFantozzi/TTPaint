@@ -1,0 +1,324 @@
+TTPAINT - SVG SNIPPET LANGUAGE
+==============================
+
+An SVG snippet is an SVG drawing with a few extra instructions that make it
+PARAMETRIC: the drawing is calculated from numbers, colours and tables (CSV
+data) that you can change afterwards in the Properties panel.
+
+A snippet is plain text. It is written in the SVG library editor and placed
+on the page with the snippet tools (two clicks: the box of the drawing).
+When the snippet is placed, the program expands it into an ordinary SVG and
+imports it as a group of objects; changing a parameter later expands it again
+and replaces the group (undo/redo works, the size and position are kept).
+
+BACKWARD COMPATIBILITY: a snippet without any instruction is just an SVG, and
+every standard SVG works. The only thing to know: in the SVG part, EVERY
+"{" starts an instruction (see "Braces" at the end). Plain SVG attributes and
+elements are never touched.
+
+
+1. STRUCTURE OF A SNIPPET
+-------------------------
+
+    @param ...        (zero or more parameter lines)
+    @paramtext ...    (zero or more table lines)
+    <svg ...> ... </svg>
+
+- The parameter lines come FIRST. The first line that does not start with
+  @param / @paramtext (blank lines are ignored) starts the SVG.
+- Parameter names: a letter or "_", then letters, digits or "_". The names
+  are NOT case sensitive (Size, size and SIZE are the same).
+- The order of the parameter lines is the order in the Properties panel.
+
+
+2. NUMBER PARAMETERS
+--------------------
+
+    @param Name = value [min, max, step] "Caption"
+
+  Name     the name used in the SVG, in {braces}
+  value    the default value (a number)
+  [..]     optional: the range of the slider and the step of the spin box.
+           [min, max] or [min, max, step]. The default is always allowed even
+           if outside the range (the range is widened).
+           Without it: min 0 (or 10 times the default if it is negative),
+           max 10 times the default (at least 1), step 1 for integers and
+           0.1 for decimals.
+  "Caption" optional: the label shown in the Properties panel (default: Name)
+
+  Examples:
+    @param Scale = 10 [2, 50, 0.5] "Pixels per tick"
+    @param Ticks = 20 [1, 200, 1] "Number of ticks"
+    @param Grid = 1 [0, 1, 1] "Grid lines (1 = yes)"
+
+  A yes/no choice is a parameter with range [0, 1, 1] that you test with
+  {if Grid = 1}.
+
+
+3. COLOUR PARAMETERS
+--------------------
+
+    @param Name = #rrggbb "Caption"       (also #rgb)
+
+  Shown with a colour button. Where {Name} is used, it is replaced by the
+  text #rrggbb, so it can be used directly in attributes:
+
+    @param Back = #f6e7a6 "Background colour"
+    <rect width="100" height="50" fill="{Back}"/>
+
+  In an expression a colour is a number (0xRRGGBB as decimal); normally it is
+  only used as {Name}.
+
+
+4. TABLE PARAMETERS (CSV)
+-------------------------
+
+    @paramtext Name "Caption"
+
+  Creates a text box in the Properties panel (with an OK button below it)
+  where the user pastes or writes CSV data. The drawing is recalculated when
+  OK is pressed. When the snippet is placed on the page, after the second
+  click a dialog asks for the data; if it is left empty (or cancelled) the
+  snippet is made with empty data and is completed later, when the CSV is
+  written in the properties. So the snippet must also work with EMPTY data
+  (use {if rows(Data) > 0} ... {else} a placeholder text {end}).
+
+  The caption may contain the two characters \n (backslash, n) to start a new
+  line. The first line is the label above the text box in the Properties
+  panel; the whole text (all the lines) is shown in the dialog that asks for
+  the data, so it is the place for an EXAMPLE of how the data must be
+  organised:
+
+    @paramtext Data "CSV data: label;value\nExample:\nFruit;Sales\nApples;40\nPears;25"
+
+  The data (CSV):
+  - one row per line; blank lines are ignored.
+  - separator: , or ; or TAB. It is detected from the first non-empty line
+    (the one it contains most). Data pasted from a spreadsheet use TAB.
+  - a field may be in "double quotes" (then it may contain the separator;
+    "" inside quotes is a quote).
+  - numbers: a decimal point (3.5). A decimal COMMA (3,5) is accepted only
+    when the separator is NOT a comma (use ; or TAB). A final % is ignored
+    (45% = 45). Spaces around fields are removed.
+  - a cell that is not a number counts as text (for num() it is 0).
+  - the header row is optional: see hdr().
+  - rows and columns are counted from 0.
+  - the data are stored inside the object, so they survive saving, undo and
+    redo.
+
+  Where a table name is used as the FIRST ARGUMENT of a table function, it
+  stands for the table. Do not use it alone in an expression.
+
+
+5. EXPRESSIONS
+--------------
+
+  {expression}  is replaced by the value of the expression, written as an
+  integer when it is one (3), otherwise with up to 4 decimals (3.1416);
+  always with a decimal POINT. -0 is written 0.
+
+    <rect width="{W * 2 + 10}" height="{H}"/>
+
+  Numbers      12   3.5   .5   1e3
+  Names        parameters, loop variables, {let} variables, pi
+  Operators    + - * /  mod  and unary - +
+               comparisons  =  <>  <  >  <=  >=     (result 1 or 0)
+               and  or  not                         (0 = false, else true)
+               ( )
+  Precedence   from the weakest: or, and, comparisons, + -, * / mod, unary.
+  Division or mod by zero is an error. sqrt of a negative number is an error.
+
+  Functions (names are not case sensitive)
+    sin(a) cos(a) tan(a)     the angle is in DEGREES
+    sqrt(x) abs(x)
+    round(x) floor(x) ceil(x)
+    min(a, b)  max(a, b)     exactly two arguments
+
+  Table functions (T is the name of a @paramtext parameter)
+    rows(T)            number of non-empty rows
+    cols(T)            number of columns (of the longest row)
+    hdr(T)             1 if the first row looks like a header, else 0.
+                       It is a header when some cell of it, from the SECOND
+                       column on, is text and not a number (a table with one
+                       column: when the first cell is text). So "x;A;B" is a
+                       header, "1;2;3" is not. A header made only of numbers
+                       (years...) in the second and following columns is not
+                       detected.
+    num(T, r, c)       the number in row r, column c (0 if it is text,
+                       empty or outside the table)
+    isnum(T, r, c)     1 if that cell is a number, else 0
+    sum(T, c)          sum of the numbers of column c
+    csum(T, c, r)      sum of the numbers of column c in the rows BEFORE row r
+                       (running total: where a pie slice starts)
+    vmin(T, c)         smallest number of column c
+    vmax(T, c)         largest number of column c
+                       With c = -1, sum/csum/vmin/vmax use ALL the columns
+                       from the second on (not the first, the labels / x).
+                       Text cells are ignored (that is why the header row
+                       does no harm), but a header with numeric names would.
+    nicestep(range, n) a "round" step (1, 2 or 5 times a power of ten) that
+                       cuts the range in about n parts; for the axes.
+                       The result is 1 if range <= 0.
+
+  Typical use of a header: data start at row h = hdr(T), so the number of data
+  rows is rows(T) - h and the data row j is row j + h.
+
+
+6. DIRECTIVES
+-------------
+
+  A directive is written in braces inside the SVG part. Directives can be
+  anywhere in the text: between tags, inside attributes, inside values.
+
+  {expression}                 see above
+  {Name}                       for a colour parameter: #rrggbb
+
+  {for i = a to b}  ...  {end}
+  {for i = a to b step s}  ...  {end}
+        Repeats what is inside; i takes a, a+s, a+2s ... while <= b (or >= b
+        if s is negative). a, b and s are expressions. Default step 1. If a > b
+        (with a positive step) it repeats zero times: {for j = 0 to n - 1}
+        with n = 0 is fine. The variable can be used in the expressions that
+        follow, also after the loop (it keeps the last value). Loops can be
+        nested. Limits: 5000 repetitions for each loop, 20000 in all, 3 MB of
+        result.
+
+  {if condition}  ...  {end}
+  {if condition}  ...  {else}  ...  {end}
+        Keeps the first part when the expression is not 0, otherwise the
+        second part (if any). Can be nested, also inside loops.
+        Write the condition with parentheses when needed:
+        {if (h = 1) and (m > 1)}
+
+  {let name = expression}
+        Keeps a value in a variable, for the rest of the snippet. It can be
+        used again to change the value (also inside {if}, to correct a
+        value):
+            {let hi = max(vmax(Data, -1), 1)}
+            {if y1 <= y0}{let y1 = y0 + 1}{end}
+        The name may also be the name of a parameter (it overrides it from
+        then on). A {let} writes nothing in the output.
+
+  {cell(T, r, c)}
+        The TEXT of the cell (row r, column c of the table T), ready to be
+        put in the SVG (the characters & < > " are escaped). Writes nothing
+        if the cell does not exist. For labels:
+            <text x="10" y="20">{cell(Data, j + h, 0)}</text>
+
+  {hsl(h, s, l)}
+        A colour #rrggbb. h = hue in degrees (0 red, 120 green, 240 blue;
+        any value is accepted, it wraps), s = saturation 0..100,
+        l = lightness 0..100. For series that need many distinct colours:
+            fill="{hsl(k * 137.5 + 205, 62, 55)}"      (137.5 = golden angle)
+
+  Blocks ({for}, {if}) must be closed by {end}; {else} only inside {if}.
+  A block cannot start in the middle of another one and end outside it.
+
+
+7. THE SVG PART
+---------------
+
+  - It must be a complete <svg width=".." height=".." ...> ... </svg> with
+    xmlns="http://www.w3.org/2000/svg". Write width and height (or a
+    viewBox): they are the natural size of the snippet; the snippet is
+    stretched to the box that the user draws with the two clicks.
+  - Elements understood: line, polyline, polygon, rect, circle, ellipse,
+    path (including curves and true elliptical arcs: A/a), text, g, with
+    fill, stroke, stroke-width, opacity, transform, gradients, font-size,
+    font-family and so on, like any SVG imported in TTPaint.
+  - Everything the program does not import in an SVG is ignored also here.
+  - text-anchor is not supported: text is left aligned at x. To centre or
+    right-align a label, shift x by an estimate of its width (for example
+    x - 6 * length). Text cannot be measured by the snippet.
+  - The drawing is stretched with the box: a pie that is stretched to a
+    rectangle becomes an ellipse (text is stretched too).
+  - The order of the elements is the order of drawing (the first at the
+    bottom).
+
+
+8. BRACES
+---------
+
+  Every "{" in the SVG part starts a directive, up to the next "}". If it is
+  not a directive, the text between the braces is evaluated as an expression
+  and an error is reported ("unknown name", "unexpected ..."). So:
+  - do not use CSS inside <style> or JavaScript with braces in a snippet; use
+    attributes (fill="...") instead.
+  - to write a literal brace there is no escape: avoid it (in text labels
+    use parentheses or brackets instead).
+  - the error message is shown in the status bar when the snippet is placed
+    or edited, and nothing is placed.
+
+
+9. HOW THE DATA ARE KEPT
+------------------------
+
+  A snippet object stores the source of the snippet, the values of the
+  parameters, the texts of the tables and the stretch of the box. Because the
+  source is stored with the object, changing the library later does not change
+  the snippets already placed. The old format (without tables) is still read.
+
+
+10. COMPLETE EXAMPLES
+---------------------
+
+10.1  Ruler (numbers and a colour)
+
+    @param Scale = 10 [2, 50, 0.5] "Pixels per tick"
+    @param Ticks = 20 [1, 200, 1] "Number of ticks"
+    @param Back = #f6e7a6 "Background colour"
+    <svg width="{Ticks * Scale + 20}" height="40" xmlns="http://www.w3.org/2000/svg">
+     <rect x="0" y="0" width="{Ticks * Scale + 20}" height="40" fill="{Back}" stroke="#333333"/>
+    {for i = 0 to Ticks}
+     <line x1="{10 + i * Scale}" y1="0" x2="{10 + i * Scale}" y2="{14 + 12 * (i mod 5 = 0)}" stroke="#333333"/>
+    {end}
+    </svg>
+
+  (A comparison is worth 1 or 0, so (i mod 5 = 0) can be used inside an
+   expression: every fifth tick is longer.)
+
+10.2  Bar chart from a table
+
+    @paramtext Data "CSV data: label;value\nExample:\nMon;4\nTue;7\nWed;5"
+    <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+    {let h = hdr(Data)}
+    {let n = rows(Data) - h}
+    {let top = max(vmax(Data, -1), 1) * 1.1}
+    {for j = 0 to n - 1}
+     <rect x="{20 + j * 40}" y="{180 - num(Data, j + h, 1) / top * 160}" width="30" height="{num(Data, j + h, 1) / top * 160}" fill="{hsl(j * 50, 60, 55)}"/>
+     <text x="{22 + j * 40}" y="195" font-size="11">{cell(Data, j + h, 0)}</text>
+    {end}
+    {if n = 0}<text x="80" y="100" font-size="14" fill="#888888">Paste the CSV data</text>{end}
+    </svg>
+
+10.3  Pie slices (running total with csum)
+
+    (with h, n, cx, cy and r defined before with {let})
+    {let tot = sum(Data, 1)}
+    {for k = 0 to n - 1}
+    {let a0 = csum(Data, 1, k + h) / tot * 360 - 90}
+    {let a1 = (csum(Data, 1, k + h) + num(Data, k + h, 1)) / tot * 360 - 90}
+    <path d="M {cx} {cy} L {cx + r * cos(a0)} {cy + r * sin(a0)}
+             A {r} {r} 0 {a1 - a0 > 180} 1 {cx + r * cos(a1)} {cy + r * sin(a1)} Z"
+          fill="{hsl(k * 137.5 + 205, 62, 55)}"/>
+    {end}
+
+  (the large-arc flag of an SVG arc is 0 or 1: {a1 - a0 > 180} gives exactly
+   that. A slice that is the whole circle needs two arcs.)
+
+  The built-in snippets "Pie graph", "Line graph" and "Scatter XY" in the
+  library are complete examples of everything above:
+  open them in the SVG library editor to read them.
+
+
+11. LIMITS AND GOOD HABITS
+--------------------------
+
+  - Write the snippet so that it works with empty data and with 1 row.
+  - Avoid dividing by something that can be 0 (a table with all zero values):
+    use max(x, 1) or an {if}.
+  - Negative values are not handled by the built-in pie graph.
+  - Stay below 5000 repetitions per loop and 3 MB of SVG.
+  - Parameter and variable names: the same name is the same variable
+    whatever the case. {let} names and loop variables share the namespace
+    of the parameters.
