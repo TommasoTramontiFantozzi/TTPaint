@@ -1,0 +1,14 @@
+BGRABitmap 11.6.6 (https://github.com/bgrabitmap/bgrabitmap), copied here from bgrabitmap-11.6.6.zip. Do not install it in Lazarus: the project finds it through its unit path.
+
+Change made to the copy: bgrareadtga.pas, TBGRAReaderTarga.GetCompressed no longer uses the access-class cast (it did not compile with FPC 3.2.2); it uses Header.ImgType > 8, as FPReadTGA does.
+
+Seconda modifica locale: in bgrabitmap.inc (incluso da ogni unit della libreria) e' stata aggiunta in testa la riga
+{$R-}{$Q-}{$S-}{$OPTIMIZATION LEVEL2}: la libreria viene compilata senza controlli di range / overflow / stack e con
+ottimizzazione, come previsto dai suoi autori (il progetto TTPaint ha invece i controlli attivi). Senza questa riga il disegno
+dei tratti larghi e' circa 3-4 volte piu' lento.
+
+Terza nota: il progetto (TTPaint.lpi) e' compilato con ottimizzazione di livello 2 e con l'assemblatore esterno (-Aas, richiede
+il pacchetto binutils: il comando "as"). Con l'assemblatore interno di FPC 3.2.2 il livello 2 non compila bgrabitmap
+(errore "Asm: [movq mem??,reg64] invalid combination of opcode and operands" in unibitmapgeneric.inc). Nota di prestazioni:
+DrawPolygonAntialias di BGRABitmap e' molto lenta (circa 2-3 ms a chiamata): TTPaint disegna i contorni chiusi con
+DrawPolyLineAntialias su una linea che ritorna sui primi due punti.
