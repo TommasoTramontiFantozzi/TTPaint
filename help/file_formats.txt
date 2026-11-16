@@ -1,0 +1,35 @@
+<text:style bold="true">File Formats</text:style>
+
+The native format of TTPaint is<text:style bold="true"> SVG</text:style>. It is meant not to lose any information of the
+drawing: besides the shapes, the file keeps the constraints, the quotes, the layers,
+the fills that follow their boundaries, the materials and the light of the layers,
+the copies and arrays, and so on.
+
+These extra pieces of information are stored with<text:style bold="true"> custom tags</text:style> (and attributes)
+inside the SVG, while the shapes themselves use the standard SVG elements and
+attributes. In this way a TTPaint file is still a normal SVG: browsers, viewers and
+vector editors can open it and show the drawing, and they simply ignore the tags
+they do not know.
+
+What those programs cannot know is not lost: it is only invisible to them. For
+instance a material appears as a flat colour (its average colour), and a rounded
+corner made by a fillet is just an arc. When the file is opened again in TTPaint
+everything is there as it was. The quotes are also written as ordinary graphics, so
+that the programs that only look at the picture can show them.
+
+A TTPaint file can be opened from the File menu. Pictures (PNG, BMP, JPG and WEBP)
+are opened as a raster image, and the same pictures can be inserted in the drawing
+that is open with File > Insert image from file.
+A picture (or several) can also be dragged from a file manager onto the TTPaint window:
+it is inserted like File > Insert image from file, centred where it is dropped (several
+pictures are staggered). Files of other kinds are ignored, and a message says so.
+
+<text:style bold="true">PNG</text:style> is used to save the<text:style bold="true"> final result as a raster image</text:style>: what you see, without the
+editing information (no constraints, no reference objects). Save As offers two kinds
+of PNG: the raster export, on a white page, and the one with a transparent
+background. A PNG cannot be edited as a drawing afterwards, so keep the SVG file as
+well if you want to change the work later.
+
+The Print command works from a preview where the page can also be saved as a PDF
+file.
+

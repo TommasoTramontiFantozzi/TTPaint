@@ -1,0 +1,150 @@
+<text:style bold="true">Right Click</text:style>
+
+The right mouse button gives the operations that make sense for what is under the
+pointer. The menu is different for each kind of object, so it never shows what
+cannot be done. Most operations change the kind of the object: a figure that is easy
+to draw (a rectangle, a circle) becomes one that is easy to edit point by point (a
+polygon, a path), and the other way is never needed.
+
+<text:style bold="true">On an object (Select tool)</text:style>
+
+A right click on an object selects it (if it was not selected) and opens the menu.
+If the object belongs to a group, the whole group is selected.
+
+<image:base64 col="0" width="44" wrap="none">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</image:base64>
+
+The menu of a rectangle: its only item is the conversion to polygon.
+
+<text:style bold="true">Group</text:style>:
+
+- Ungroup (split into its elements): the group is split into separate objects. It is
+  the same as Ctrl+Shift+G.
+
+<text:style bold="true">Copies tied to their parent</text:style> (made by Offset, Mirror or Array):
+
+- Detach from its parent (make it an object of its own): the copy stops following
+  its original and can be edited and moved by itself. It is the only item for these
+  objects, because they cannot be changed while they are tied.
+
+<text:style bold="true">Rectangle</text:style>:
+
+- Convert to polygon (its sides can then be constrained): the rectangle becomes a
+  polygon with four points; a rectangle with rounded corners asks how many points
+  the polygon needs (the corners become short chains of sides). A polygon can take
+  constraints on each side and corner.
+- Convert to path (a smooth curve through points that can be moved): only for a
+  rectangle with rounded corners; it becomes a path made of curves.
+
+<text:style bold="true">Ellipse, circle and arc</text:style>:
+
+- Convert to path (a curve whose points can be moved): the figure becomes a path
+  with the same look, whose points can be dragged to deform it.
+
+<text:style bold="true">Regular polygon</text:style> (made with the Regular geometric shape tool; its sides are kept
+equal by constraints):
+
+- Convert to polygon (its corners can then be moved freely): it becomes a plain
+  polygon and the regularity is lost.
+- Convert to path (a path with the same look, whose points can be edited): the
+  constraints of the shape are dropped.
+
+<text:style bold="true">Polyline</text:style> (open line made of segments):
+
+- Close into a polygon (join the two ends): adds the last side and makes it a
+  polygon, which can be filled.
+
+<text:style bold="true">Path</text:style> (a curve with Bezier points, for instance the result of Vectorize or of a
+conversion):
+
+- Convert to polygon (its points can then take constraints; asks how many): the
+  curves are replaced with the number of straight sides that you choose, so that the
+  points can be constrained.
+
+<text:style bold="true">Fill made with the Paint bucket</text:style>:
+
+- Convert to polygon (independent of the lines that made it): the fill stops
+  following the lines that close it and becomes a polygon of its own.
+- Convert to path (a smooth curve through points that can be moved): the same, with
+  a path.
+
+<text:style bold="true">Text</text:style>:
+
+- Convert text to paths (one curve per letter): every letter becomes a path, so its
+  points can be edited.
+- Convert text to polygons (straight sides, one per letter): every letter becomes a
+  polygon. A turned text gives turned letters. After the conversion it is not text
+  any more: it cannot be edited as text.
+
+<text:style bold="true">Picture (raster)</text:style>:
+
+- Crop (move the borders of the picture): the borders of the picture can be dragged;
+  a click outside the frame confirms. Not for a turned picture.
+- Perspective correction (move the four corners): four handles at the corners of the
+  picture to straighten a photographed rectangle; the result is shown while you move
+  them. Not for a turned picture.
+- Flip (turn the picture upside down): the top and the bottom of the picture swap
+  places, like a reflection in a horizontal mirror. The picture stays where it is.
+- Mirror (swap left and right): the left and the right of the picture swap places,
+  like a reflection in a vertical mirror. The picture stays where it is.
+  Both can be undone with Ctrl+Z and keep the transparent colour of the picture, if
+  one was set.
+- Paste the pixels into the raster / Merge into the raster underneath (Enter): the same as
+  pressing Enter on the picture (see Raster tools).
+
+<text:style bold="true">Selection made with the selection tools of the Raster Tools panel</text:style> (rectangle,
+ellipse, free hand, wand):
+
+- Copy the pixels under the selection (Ctrl+C) / Cut the pixels under the selection
+  (Ctrl+X): put them in the clipboard. The cut leaves in their place the Fill colour
+  (the square behind in the colours at the bottom), the same that stays when the
+  selection is dragged away; if the Fill is none the place is transparent.
+- Fill the selection with the secondary colour (transparent if it is none) (Shift+Del).
+- Modify selection borders (move the points of the outline): the outline of the
+  selection shows its points (a rectangle or an ellipse becomes a polygon of straight
+  sides). Drag them to change the selected area. Click outside to finish. To move the
+  pixels, drag inside the selection or double click it.
+- Convert to vectorial figure (a polygon): a vector polygon that follows the
+  outline of the selected area. If the area has holes or several separate parts
+  a polygon cannot hold them, so the figure is a path of straight sides.
+
+<text:style bold="true">Rasterize</text:style> is the last item of the menu of every vector figure and of every group (also
+of lines, arrows, polygons and curves, which have no other item): the figure, or the whole
+group, is drawn as it is seen on the page and becomes one raster picture, in its place and
+over the same objects. The opacity and the background of its layer are not part of it. The
+raster is as large as what is seen of the figure, one pixel for every unit of the page.
+Rasterize cannot be used on a raster, on a selection of pixels or on a reference object.
+
+Operations that need several objects (Group, Merge rasters) are buttons of the panels, not of
+the menu.
+
+<text:style bold="true">On a point</text:style>
+
+A right click on a<text:style bold="true"> point</text:style> of a selected polyline, polygon, curve or path selects the
+point and offers:
+
+- Remove this point (curve and path) / Remove this joint (polyline and polygon):
+  deletes the point; the line closes up over it. If it is not possible (for instance
+  when too few points would be left) the status bar says why.
+- Convert the path to a polygon (its points can then take constraints), for the
+  points of a path.
+
+<text:style bold="true">On the empty page</text:style>
+
+- While a polyline, polygon or curve is being drawn: the right click ends it (like a
+  double click or Enter).
+- While any other figure is being drawn: it is cancelled.
+- With any other tool: it goes back to the Select tool.
+- With the Eyedropper tool: the click takes the colour as the fill (secondary)
+  colour, instead of the stroke colour.
+- While choosing the reference of a gradient: the choice is cancelled and the
+  reference does not change.
+
+<text:style bold="true">In the panels</text:style>
+
+- A colour (or material) of the Colors panel: Change color... (opens the colour
+  window to change the swatch; for a material, the material window) and Assign as
+  secondary color (dbl click) (the swatch becomes the fill colour).
+- The two colour boxes of the bar at the bottom: Copy to button 1..9 of the Colors
+  panel; each item shows the colour that the button has now. It works when the panel
+  shows colours, not materials.
+

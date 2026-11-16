@@ -1,0 +1,202 @@
+<text:style bold="true">Filters Language</text:style>
+
+<text:style bold="true">The filters work only through Filter layers.</text:style> A filter is never applied directly to
+an object or to a picture: to use one, a filter layer must be created. In the Layers
+panel press "Filter..." (it adds a filter layer above the active layer). A filter
+layer shows, through the raster filter, everything that is under it: all the layers
+below. Nothing is changed in the objects: the filter can be changed or removed at
+any time, and the result is also in the exported images.
+
+When a filter layer is the active one:
+
+- the Filters panel takes the place of the Colors panel at the top: it has a button
+  for every filter of the library (its icon is a small colour card seen through the
+  filter). Pressing one chooses it for the layer, and a window asks for its
+  parameters.
+- the Filters menu has: Filters Library... (the editor of the library, see below),
+  Filter parameters... (to change the values later) and Remove the filter of the
+  layer.
+- For a filter layer the Properties panel does not show Layer opacity, Scale
+  factor and Background: they mean nothing for a filter.
+- only reference objects can be drawn in a filter layer (they are drawn dashed and
+  are not exported). If the layer has closed figures, the filter works only inside
+  them; with no figure it works on the whole page. Hide the reference figures
+  (option of the layers panel) to see the result without them.
+
+To filter only one object, put it in a layer below the filter layer and draw, in the
+filter layer, a closed reference figure that covers it. Whatever else lies in that
+figure, in any layer below, is filtered too.
+
+<text:style bold="true">The language</text:style>
+
+The filters are written in a small BASIC in which every variable is a floating point
+number. The script is the body that runs<text:style bold="true"> for every pixel</text:style> of the picture: it reads
+the colour of the input pixel (and, if it wants, of other pixels) and writes the
+colour of the output pixel. It is compiled once and run by several threads at the
+same time, so even complex filters are fast.
+
+<text:style bold="true">The library editor</text:style>
+
+Filters > Filters Library... opens the editor. At the left there is the list of the
+filters, the ones that are built in first (Contrast / Luminance / Saturation,
+Gaussian blur, Hue / Saturation / Lightness, Invert, Gray scale, Replace color,
+Color range offset and Soft clipping) and then yours. For the selected one you can
+change the name and write the script in the big box; the icon is made by the
+program. "Test the script" compiles the script and says that it is good (with the
+number of parameters) or tells the error with its line. Add makes a new filter
+(starting from a small example), Remove deletes the selected one, OK keeps the
+library and makes the buttons of the panel again, Cancel throws the changes away.
+The built-in filters are complete examples: open them to read them.
+
+<text:style bold="true">1. Parameters</text:style>
+
+    @param Name = default [min, max, step] "Caption"
+
+The parameter lines are written like those of the SVG snippets (see SVG Snippets
+Language) and can be anywhere in the script. When a filter is chosen a window shows
+a slider for every parameter, and the values can be changed later with Filters >
+Filter parameters... In the script a parameter is a read-only value.
+
+Every filter, whatever its script, has two more sliders at the end of that window: "Fade
+at the outer borders (px)" and "Fade at the inner borders (holes) (px)". With 0 the filter
+works at full strength up to the edge of its domain; with a larger value its effect fades
+smoothly, over that many pixels, towards that edge. The domain of a filter layer is the
+page, or the closed figures drawn in the layer; the domain of a filter applied to a raster
+is the raster, or the selection of pixels it is applied to. The outer borders are the ones
+of the domain towards the rest of the page (or of the raster); the inner borders are the
+ones of the holes inside it: for a selection made of a large rectangle from which a smaller
+one has been subtracted, the outline of the large rectangle is the outer border and the
+outline of the small one is the inner border. The two values are independent. They are kept
+with the filter layer (files saved before the inner slider existed use for the holes the same
+value as for the outer borders).
+
+<text:style bold="true">2. The names of the language</text:style>
+
+The names are not case sensitive. These ones are ready to use:
+
+- X, Y: the position of the pixel in the whole picture (in pixels, from 0).
+- MAXX, MAXY: the position of the last pixel, so the picture is MAXX + 1 by MAXY + 1
+  pixels.
+- SCALE: the pixels of the picture for every unit of the drawing (the zoom). Use it
+  to give sizes in drawing units, so that the result does not change with the zoom.
+- R, G, B: the colour of the input pixel, 0..255. H, S, L: the same colour as hue
+  (0..360 degrees), saturation (0..100) and lightness (0..100). A: the opacity,
+  0..255.
+- Ro, Go, Bo: the colour of the output pixel, 0..255. Ho, So, Lo: the same as hue,
+  saturation and lightness. Ao: the output opacity.
+- PI.
+
+The input cannot be changed: the result goes to the outputs. At the start every
+output is equal to its input, so a script that writes nothing changes nothing, and
+one can write only what has to change. Results out of 0..255 are cut. If a script
+writes Ho, So or Lo the colour of the output is made from them (the hue wraps
+round).
+
+Every other name that is given a value becomes a variable. A variable has to be
+given a value before it is read, and it starts again from zero for every pixel.
+
+<text:style bold="true">3. Statements</text:style>
+
+- name = expression: gives a value (LET name = expression is the same). Several
+  statements can be on one line, separated by a colon.
+- IF condition THEN ... ELSEIF condition THEN ... ELSE ... ENDIF
+- FOR i = a TO b ... NEXT (or NEXT i): repeats; STEP s gives another step than 1.
+- WHILE condition ... WEND
+- A comment starts with an apostrophe or with REM and goes to the end of the line.
+- A line that contains only PASS separates two passes (see below).
+- @premul on a line of its own (see below).
+
+<text:style bold="true">4. Expressions</text:style>
+
+- Numbers: 12 3.5 .5 1e3
+- Operators: + - * / ^ (power) MOD unary - and +.
+- Comparisons: = <> < > <= >= . Their result is 1 or 0.
+- AND, OR, NOT: 0 is false, anything else is true.
+- Parentheses.
+
+<text:style bold="true">Functions</text:style>:
+
+- One argument: ABS, SQR (the same as SQRT), SIN, COS, TAN, TANH, ATN (the same as
+  ATAN), ASIN, ACOS, EXP, LOG, INT (the same as FLOOR), CEIL, ROUND, SGN, FRAC. The
+  angles are in radians.
+- Two arguments: MIN, MAX, ATAN2(y, x), POW, MOD, NOISE(x, y) (a repeatable
+  pseudo-random number from 0 to 1 for each pair).
+- Three arguments: CLAMP(v, low, high), MIX(a, b, t) (a + (b - a) * t),
+  SMOOTHSTEP(edge0, edge1, x).
+
+<text:style bold="true">5. Reading other pixels</text:style>
+
+- R[x, y], G[x, y], B[x, y], H[x, y], S[x, y], L[x, y], A[x, y]: the channel of the
+  input pixel at (x, y), the nearest pixel (outside the picture, the pixel of the
+  border).
+- SR(x, y), SG(x, y), SB(x, y): the colour channels at a position that is not a
+  whole number, interpolated between the four pixels around it.
+- AVGR(x0, y0, x1, y1), AVGG, AVGB, AVGA: the mean of that channel in the rectangle
+  with those corners (the corners are included, the part outside the picture is left
+  out). It takes the same time whatever the size of the rectangle, so it is the way
+  to make blurs.
+- Ro[X, Y] = expression is the same as Ro = expression (the output can only be
+  written at the pixel itself).
+
+<text:style bold="true">6. Passes and @premul</text:style>
+
+A script can have several passes, separated by a line that contains only PASS. The
+output of a pass is the input of the next one, and the variables start again in each
+pass. The passes before the last work on the whole picture: this is what a filter
+needs when it must read pixels already changed (the gaussian blur is three box blurs
+one after the other). Parameters are the same in all the passes.
+
+The line @premul makes R, G and B come multiplied by the opacity A (and go out like
+that): the transparent parts do not darken the edges. It is used by the blur.
+
+<text:style bold="true">7. Errors and limits</text:style>
+
+- A wrong script is not used. The error says the line and the problem ("THEN
+  expected", "unknown function", "has no value yet", ...); "Test the script" shows
+  it.
+- A script that takes too long (a loop that does not end, or too much work for every
+  pixel: about four million backward jumps for one pixel, or one minute in all) is
+  stopped with the error "the filter takes too long".
+- A filter has to work for any picture, also an empty one. Avoid divisions by
+  something that can be zero (use MAX(x, 1)).
+
+<text:style bold="true">8. Examples</text:style>
+
+<text:style bold="true">A vignette</text:style> (the picture darkens towards the corners):
+
+    @param Strength = 60 [0,100,1] "Strength"
+    cx = MAXX / 2 : cy = MAXY / 2
+    d = SQRT((X - cx) ^ 2 + (Y - cy) ^ 2) / SQRT(cx * cx + cy * cy)
+    k = 1 - Strength / 100 * d * d
+    Ro = R * k : Go = G * k : Bo = B * k
+
+<text:style bold="true">A threshold</text:style> (black and white):
+
+    @param Level = 128 [0,255,1] "Threshold"
+    lum = 0.299 * R + 0.587 * G + 0.114 * B
+    IF lum > Level THEN
+      v = 255
+    ELSE
+      v = 0
+    ENDIF
+    Ro = v : Go = v : Bo = v
+
+<text:style bold="true">Pixelate</text:style> (every block takes the colour of its centre; the size is in drawing units,
+so it does not depend on the zoom):
+
+    @param Size = 8 [1,50,1] "Block size (drawing units)"
+    sz = MAX(1, ROUND(Size * SCALE))
+    bx = INT(X / sz) * sz + sz / 2
+    by = INT(Y / sz) * sz + sz / 2
+    Ro = R[bx, by] : Go = G[bx, by] : Bo = B[bx, by]
+
+<text:style bold="true">Invert</text:style>, with the amount as a parameter (it is the example that a new filter starts
+from):
+
+    @param Amount = 100 [0,100,1] "Amount"
+    ' the colour of every pixel: R, G, B (0..255) in; Ro, Go, Bo out.
+    t = Amount / 100
+    Ro = MIX(R, 255 - R, t)
+    Go = MIX(G, 255 - G, t)
+    Bo = MIX(B, 255 - B, t)
+
