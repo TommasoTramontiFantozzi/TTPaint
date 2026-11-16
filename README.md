@@ -1,3 +1,4 @@
 # TTPaint
-A classic, quick drawing program similar to the traditional Paint, written in GTK.
-<img width="1492" height="733" alt="image" src="https://github.com/user-attachments/assets/8e398ada-c0f0-446c-87a5-c11a27548430" />
+A classic, quick drawing program similar to the traditional Paint, written in GTK.Compiled with Lazarus 4.0 and 4.8, tested on Linux Ubuntu Cinnamon 22.04
+
+<img width="1495" height="737" alt="image" src="https://github.com/user-attachments/assets/b49f6c75-a8aa-495e-94c3-e14dab43fbc1" />
