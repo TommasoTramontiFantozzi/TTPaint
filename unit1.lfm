@@ -1,14 +1,14 @@
 object Form1: TForm1
   Left = 371
-  Height = 652
+  Height = 702
   Top = 94
   Width = 1359
   Caption = 'TTPaint'
-  ClientHeight = 652
+  ClientHeight = 702
   ClientWidth = 1359
   KeyPreview = True
   Menu = MainMenu1
-  LCLVersion = '4.0.0.4'
+  LCLVersion = '4.8.0.0'
   OnClose = FormClose
   OnCreate = FormCreate
   OnKeyDown = FormKeyDown
@@ -94,9 +94,9 @@ object Form1: TForm1
       end
       object label1: TLabel
         Left = 50
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 109
+        Width = 97
         Caption = 'Geometric Tools'
       end
       object toolSpline: TSpeedButton
@@ -147,9 +147,9 @@ object Form1: TForm1
       end
       object LabelArtistic: TLabel
         Left = 4
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 87
+        Width = 77
         Caption = 'Artistic Tools'
       end
     end
@@ -242,9 +242,9 @@ object Form1: TForm1
       end
       object LabelActions: TLabel
         Left = 84
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 50
+        Width = 45
         Caption = 'Actions'
       end
     end
@@ -307,9 +307,9 @@ object Form1: TForm1
       end
       object Label3: TLabel
         Left = 54
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 76
+        Width = 69
         Caption = 'Constraints'
       end
       object constVertical: TSpeedButton
@@ -396,9 +396,9 @@ object Form1: TForm1
       end
       object Label4: TLabel
         Left = 48
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 43
+        Width = 38
         Caption = 'Colors'
       end
     end
@@ -431,9 +431,9 @@ object Form1: TForm1
       end
       object Label5: TLabel
         Left = 6
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 48
+        Width = 44
         Caption = 'Quotes'
       end
     end
@@ -454,16 +454,16 @@ object Form1: TForm1
       end
       object Label6: TLabel
         Left = 6
-        Height = 17
+        Height = 16
         Top = 8
-        Width = 74
+        Width = 66
         Caption = 'References'
       end
     end
   end
   object ScrollBox1: TScrollBox
     Left = 0
-    Height = 505
+    Height = 556
     Top = 128
     Width = 1059
     HorzScrollBar.Increment = 1
@@ -477,7 +477,7 @@ object Form1: TForm1
     VertScrollBar.Tracking = True
     VertScrollBar.Visible = False
     Align = alClient
-    ClientHeight = 503
+    ClientHeight = 554
     ClientWidth = 1057
     TabOrder = 1
     object PaintBox1: TPaintBox
@@ -494,8 +494,8 @@ object Form1: TForm1
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Height = 19
-    Top = 633
+    Height = 18
+    Top = 684
     Width = 1359
     Panels = <    
       item
@@ -505,11 +505,11 @@ object Form1: TForm1
   end
   object PropertiesPanel: TPanel
     Left = 1059
-    Height = 505
+    Height = 556
     Top = 128
     Width = 300
     Align = alRight
-    ClientHeight = 505
+    ClientHeight = 556
     ClientWidth = 300
     TabOrder = 3
     object Label2: TLabel
@@ -525,7 +525,7 @@ object Form1: TForm1
     end
     object ScrollBox2: TScrollBox
       Left = 1
-      Height = 479
+      Height = 530
       Top = 25
       Width = 298
       HorzScrollBar.Page = 1
@@ -624,7 +624,6 @@ object Form1: TForm1
       end
       object MenuItem19: TMenuItem
         Caption = 'About'
-        OnClick = MenuItem19Click
       end
     end
   end

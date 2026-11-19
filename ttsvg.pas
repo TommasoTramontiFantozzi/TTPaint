@@ -18,12 +18,14 @@ function DocToSVG(doc: TDoc; subset: Boolean; const only: TIntArray; withQuotes:
 
 { Loads an SVG. append=False replaces the document content. With append=True the
   shapes are added with fresh ids and moved by (dx,dy); their new ids are returned. }
+
 procedure SVGToDoc(const text: string; doc: TDoc; append: Boolean;
   dx, dy: Double; out newIds: TIntArray);
 
 { The size of the drawing in an SVG text (width / height, or its viewBox); False when it cannot be read. }
 function SvgSize(const text: string; out w, h: Double): Boolean;
 
+function ShapeToSVG(s: TShape): string;
 function ColorToSvg(c: Integer): string;
 function FloatStr(v: Double): string;
 
@@ -317,6 +319,13 @@ begin
     attrs := attrs + ' ttp:spray="' + FormatFloat('0.###', s.SprayR, FS) + ';' + FormatFloat('0.###', s.SprayDot, FS) + ';' +
       FormatFloat('0.###', s.SprayDens, FS) + ';' + IntToStr(s.SpraySeed) + ';' + IntToStr(s.Style.Stroke) + '"';
   if s.Soft > 0 then attrs := attrs + ' ttp:soft="' + IntToStr(s.Soft) + '"';
+  if s.ShOn then
+    // read back by TTPaint (ttp:shadow); the style is for the programs that only look at the picture
+    attrs := attrs + ' ttp:shadow="' + FormatFloat('0.###', s.ShDX, FS) + ';' + FormatFloat('0.###', s.ShDY, FS) + ';' +
+      FormatFloat('0.###', s.ShBlur, FS) + ';' + IntToStr(s.ShColor) + ';' + IntToStr(s.ShTr) + '"' +
+      ' style="filter:drop-shadow(' + FormatFloat('0.###', s.ShDX, FS) + 'px ' + FormatFloat('0.###', s.ShDY, FS) + 'px ' +
+      FormatFloat('0.###', s.ShBlur, FS) + 'px rgba(' + IntToStr(s.ShColor and $FF) + ',' + IntToStr((s.ShColor shr 8) and $FF) + ',' +
+      IntToStr((s.ShColor shr 16) and $FF) + ',' + FormatFloat('0.###', (255 - s.ShTr) / 255, FS) + '))"';
   if s.Locked then attrs := attrs + ' ttp:locked="1"';
   if s.Hidden then
   begin
@@ -1184,6 +1193,7 @@ end;
 function ReadTtpShape(el: TDOMElement; const base: TStyle): TShape;
 var
   k: TShapeKind;
+  shf: TStringList;
 begin
   Result := nil;
   if not KindFromName(A(el, 'ttp:kind'), k) then Exit;
@@ -1198,6 +1208,26 @@ begin
   ReadBucket(el, Result);
   ReadSpray(el, Result);
   Result.Soft := Max(0, Min(100, StrToIntDef(A(el, 'ttp:soft'), 0)));
+  if A(el, 'ttp:shadow') <> '' then
+  begin
+    shf := TStringList.Create;
+    try
+      shf.Delimiter := ';';
+      shf.StrictDelimiter := True;
+      shf.DelimitedText := A(el, 'ttp:shadow');
+      if shf.Count >= 5 then
+      begin
+        Result.ShOn := True;
+        Result.ShDX := StrToFloatDef(shf[0], 0, FS);
+        Result.ShDY := StrToFloatDef(shf[1], 0, FS);
+        Result.ShBlur := StrToFloatDef(shf[2], 0, FS);
+        Result.ShColor := StrToIntDef(shf[3], 0);
+        Result.ShTr := StrToIntDef(shf[4], 128);
+      end;
+    finally
+      shf.Free;
+    end;
+  end;
   Result.Locked := A(el, 'ttp:locked') = '1';
   Result.Hidden := A(el, 'ttp:hidden') = '1';
   Result.Reg := (A(el, 'ttp:regular') = '1') and (Result.Kind = skPolygon);
@@ -1525,7 +1555,8 @@ end;
 
 // the shape s is filled with url(#id): it becomes a gradient shape; the line (or circle) the gradient
 // runs along is returned as a reference object, to be added to the drawing before s
-function ForeignGradient(xml: TXMLDocument; el: TDOMElement; s: TShape; out ref: TShape): Boolean;
+function ForeignGradient(xml: TXMLDocument; el: TDOMElement; s: TShape; out ref: TShape; byStroke: Boolean = False;
+  bboxOf: TShape = nil): Boolean;
 var
   v, id, units: string;
   g: TDOMElement;
@@ -1555,7 +1586,7 @@ var
 begin
   Result := False;
   ref := nil;
-  v := StyleProp(el, 'fill');
+  if byStroke then v := StyleProp(el, 'stroke') else v := StyleProp(el, 'fill');
   if Copy(v, 1, 5) <> 'url(#' then Exit;
   id := Copy(v, 6, MaxInt);
   k := Pos(')', id);
@@ -1570,7 +1601,8 @@ begin
   bx := 0; by := 0; bw := 1; bh := 1;
   if bbox then
   begin
-    o := ShapeOutline(s);
+    // the box of the gradient is the one of the figure itself (for a stroke, not of the ring that stands for it)
+    if bboxOf <> nil then o := ShapeOutline(bboxOf) else o := ShapeOutline(s);
     x1 := 1e300; y1 := 1e300; x2 := -1e300; y2 := -1e300;
     for i := 0 to High(o) do
       for k := 0 to High(o[i].Pts) do
@@ -1649,6 +1681,254 @@ begin
   Result := True;
 end;
 
+
+type
+  TShadowSpec = record
+    DX, DY, Blur: Double;
+    Col, Tr: Integer;
+  end;
+
+function FindById(xml: TXMLDocument; const tag, id: string): TDOMElement;
+var
+  i: Integer;
+  nl: TDOMNodeList;
+begin
+  Result := nil;
+  nl := xml.GetElementsByTagName(tag);
+  try
+    for i := 0 to nl.Count - 1 do
+      if TDOMElement(nl[i]).GetAttribute('id') = id then Exit(TDOMElement(nl[i]));
+  finally
+    nl.Free;
+  end;
+end;
+
+// "url(#id)" -> id
+function UrlId(const v: string): string;
+var
+  k: Integer;
+begin
+  Result := '';
+  if Copy(Trim(v), 1, 5) <> 'url(#' then Exit;
+  Result := Copy(Trim(v), 6, MaxInt);
+  k := Pos(')', Result);
+  if k > 0 then Result := Copy(Result, 1, k - 1);
+  Result := Trim(Result);
+end;
+
+// the drop shadow a filter="url(#id)" asks for (feDropShadow); False when there is no filter or it is of another kind
+function FilterShadowOf(xml: TXMLDocument; el: TDOMElement; out sp: TShadowSpec): Boolean;
+var
+  f, d: TDOMElement;
+  n: TDOMNode;
+  v: string;
+  op: Double;
+begin
+  Result := False;
+  f := FindById(xml, 'filter', UrlId(StyleProp(el, 'filter')));
+  if f = nil then Exit;
+  n := f.FirstChild;
+  while n <> nil do
+  begin
+    if (n.NodeType = ELEMENT_NODE) and (TDOMElement(n).TagName = 'feDropShadow') then
+    begin
+      d := TDOMElement(n);
+      sp.DX := StrToFloatDef(A(d, 'dx'), 2, FS);
+      sp.DY := StrToFloatDef(A(d, 'dy'), 2, FS);
+      v := Trim(A(d, 'stdDeviation'));
+      if Pos(' ', v) > 0 then v := Copy(v, 1, Pos(' ', v) - 1);
+      sp.Blur := Max(0, StrToFloatDef(v, 2, FS));
+      v := A(d, 'flood-color');
+      if v = '' then sp.Col := 0 else sp.Col := SvgToColor(v, 0);
+      op := 1;
+      if A(d, 'flood-opacity') <> '' then op := Max(0, Min(1, StrToFloatDef(A(d, 'flood-opacity'), 1, FS)));
+      sp.Tr := 255 - Round(255 * op);
+      Exit(True);
+    end;
+    n := n.NextSibling;
+  end;
+end;
+
+function ShapeBox(s: TShape; out x1, y1, x2, y2: Double): Boolean;
+var
+  o: TOutline;
+  i, j: Integer;
+begin
+  o := ShapeOutline(s);
+  x1 := 1e300; y1 := 1e300; x2 := -1e300; y2 := -1e300;
+  for i := 0 to High(o) do
+    for j := 0 to High(o[i].Pts) do
+    begin
+      x1 := Min(x1, o[i].Pts[j].x);
+      y1 := Min(y1, o[i].Pts[j].y);
+      x2 := Max(x2, o[i].Pts[j].x);
+      y2 := Max(y2, o[i].Pts[j].y);
+    end;
+  Result := x1 <= x2;
+end;
+
+// the shapes from index n0 on share the shadow sp as one object would: the ones that lie inside another one of them add nothing
+// to the outline of the whole, so only the outer ones get the shadow
+procedure ApplyShadow(doc: TDoc; n0: Integer; const sp: TShadowSpec);
+var
+  i, j: Integer;
+  a, b: TShape;
+  ax1, ay1, ax2, ay2, bx1, by1, bx2, by2: Double;
+  inner: Boolean;
+begin
+  for i := n0 to doc.Shapes.Count - 1 do
+  begin
+    a := doc.Shapes[i];
+    if a.IsRef or a.ShOn or not ShapeBox(a, ax1, ay1, ax2, ay2) then Continue;
+    inner := False;
+    for j := n0 to doc.Shapes.Count - 1 do
+    begin
+      b := doc.Shapes[j];
+      if (j = i) or b.IsRef or not ShapeBox(b, bx1, by1, bx2, by2) then Continue;
+      if (bx1 <= ax1 + 0.01) and (by1 <= ay1 + 0.01) and (bx2 >= ax2 - 0.01) and (by2 >= ay2 - 0.01) and
+         ((bx2 - bx1) * (by2 - by1) > (ax2 - ax1) * (ay2 - ay1) + 0.01) or
+         ((Abs((bx2 - bx1) * (by2 - by1) - (ax2 - ax1) * (ay2 - ay1)) <= 0.01) and (j < i) and
+          (bx1 <= ax1 + 0.01) and (by1 <= ay1 + 0.01) and (bx2 >= ax2 - 0.01) and (by2 >= ay2 - 0.01)) then
+      begin
+        inner := True;
+        Break;
+      end;
+    end;
+    if inner then Continue;
+    a.ShOn := True;
+    a.ShDX := sp.DX;
+    a.ShDY := sp.DY;
+    a.ShBlur := sp.Blur;
+    a.ShColor := sp.Col;
+    a.ShTr := sp.Tr;
+  end;
+end;
+
+// the closed figures from index n0 on are cut by the clip figure (a clipPath): what is outside goes, and a figure that is
+// completely outside goes altogether. Open lines and the other kinds are left as they are.
+procedure ApplyClip(doc: TDoc; n0: Integer; clip: TShape);
+var
+  i, k, j: Integer;
+  s: TShape;
+  o, oc: TOutline;
+  inside: Boolean;
+  pd, err: string;
+begin
+  if (clip = nil) or not BoolEligible(clip) then Exit;
+  oc := ShapeOutline(clip);
+  for i := doc.Shapes.Count - 1 downto n0 do
+  begin
+    s := doc.Shapes[i];
+    if s.IsRef or not BoolEligible(s) then Continue;
+    o := ShapeOutline(s);
+    inside := True;
+    for k := 0 to High(o) do
+      for j := 0 to High(o[k].Pts) do
+        if not InsideOutline(oc, o[k].Pts[j].x, o[k].Pts[j].y) then inside := False;
+    if inside then Continue;
+    if not BoolOverlap(s, clip) then
+    begin
+      doc.DeleteShape(s);
+      Continue;
+    end;
+    if BoolCompute(s, clip, 0, pd, err) then
+    begin
+      s.Kind := skPath;
+      SetLength(s.P, 1);
+      s.P[0] := MakePt(0, 0);
+      s.PathData := pd;
+      s.Rot := 0;
+      s.Corner := 0;
+      s.SplineClosed := False;
+      SetLength(s.RingStarts, 0);
+      s.ParsePath;
+    end;
+  end;
+end;
+
+// the first figure of the clipPath that el points to with clip-path="url(#id)"; nil: none
+function ClipOf(xml: TXMLDocument; el: TDOMElement): TShape;
+var
+  c: TDOMElement;
+  n: TDOMNode;
+  st: TStyle;
+begin
+  Result := nil;
+  c := FindById(xml, 'clipPath', UrlId(StyleProp(el, 'clip-path')));
+  if c = nil then Exit;
+  st := DefaultStyle;
+  st.Fill := 0;
+  n := c.FirstChild;
+  while (n <> nil) and (Result = nil) do
+  begin
+    if n.NodeType = ELEMENT_NODE then Result := ReadForeignShape(TDOMElement(n), st);
+    n := n.NextSibling;
+  end;
+end;
+
+function EllPathStr(cx, cy, rx, ry: Double): string;
+begin
+  Result := 'M ' + FloatStr(cx - rx) + ' ' + FloatStr(cy) + ' A ' + FloatStr(rx) + ' ' + FloatStr(ry) + ' 0 1 0 ' +
+    FloatStr(cx + rx) + ' ' + FloatStr(cy) + ' A ' + FloatStr(rx) + ' ' + FloatStr(ry) + ' 0 1 0 ' + FloatStr(cx - rx) + ' ' +
+    FloatStr(cy) + ' Z ';
+end;
+
+function RRectPathStr(x, y, w, h, r: Double): string;
+begin
+  r := Max(0, Min(r, Min(w, h) / 2));
+  if r < 1e-6 then
+    Exit('M ' + FloatStr(x) + ' ' + FloatStr(y) + ' L ' + FloatStr(x + w) + ' ' + FloatStr(y) + ' L ' + FloatStr(x + w) + ' ' +
+      FloatStr(y + h) + ' L ' + FloatStr(x) + ' ' + FloatStr(y + h) + ' Z ');
+  Result := 'M ' + FloatStr(x + r) + ' ' + FloatStr(y) + ' L ' + FloatStr(x + w - r) + ' ' + FloatStr(y) +
+    ' A ' + FloatStr(r) + ' ' + FloatStr(r) + ' 0 0 1 ' + FloatStr(x + w) + ' ' + FloatStr(y + r) +
+    ' L ' + FloatStr(x + w) + ' ' + FloatStr(y + h - r) +
+    ' A ' + FloatStr(r) + ' ' + FloatStr(r) + ' 0 0 1 ' + FloatStr(x + w - r) + ' ' + FloatStr(y + h) +
+    ' L ' + FloatStr(x + r) + ' ' + FloatStr(y + h) +
+    ' A ' + FloatStr(r) + ' ' + FloatStr(r) + ' 0 0 1 ' + FloatStr(x) + ' ' + FloatStr(y + h - r) +
+    ' L ' + FloatStr(x) + ' ' + FloatStr(y + r) +
+    ' A ' + FloatStr(r) + ' ' + FloatStr(r) + ' 0 0 1 ' + FloatStr(x + r) + ' ' + FloatStr(y) + ' Z ';
+end;
+
+// A stroke painted with a gradient: TTPaint gradients are fills, so the stroke becomes the ring of its width (circle, ellipse and
+// rectangle), filled with that gradient. s is the figure read from el; the ring (nil: not possible) comes with the line or circle
+// its gradient runs along.
+function StrokeRing(xml: TXMLDocument; el: TDOMElement; s: TShape; out gref: TShape): TShape;
+var
+  w, x, y, bw, bh: Double;
+  pd: string;
+begin
+  Result := nil;
+  gref := nil;
+  w := Max(0.1, s.Style.Width);
+  if s.Kind = skEllipse then
+  begin
+    pd := EllPathStr(s.P[0].x, s.P[0].y, s.RX + w / 2, s.RY + w / 2);
+    if (s.RX - w / 2 > 0.01) and (s.RY - w / 2 > 0.01) then pd := pd + EllPathStr(s.P[0].x, s.P[0].y, s.RX - w / 2, s.RY - w / 2);
+  end
+  else if s.Kind = skRect then
+  begin
+    x := Min(s.P[0].x, s.P[1].x);
+    y := Min(s.P[0].y, s.P[1].y);
+    bw := Abs(s.P[1].x - s.P[0].x);
+    bh := Abs(s.P[1].y - s.P[0].y);
+    pd := RRectPathStr(x - w / 2, y - w / 2, bw + w, bh + w, s.Corner + w / 2);
+    if (bw > w) and (bh > w) then pd := pd + RRectPathStr(x + w / 2, y + w / 2, bw - w, bh - w, Max(0, s.Corner - w / 2));
+  end
+  else Exit;
+  Result := TShape.Create;
+  Result.Kind := skPath;
+  SetLength(Result.P, 1);
+  Result.P[0] := MakePt(0, 0);
+  Result.PathData := pd;
+  Result.ParsePath;
+  Result.Style := DefaultStyle;
+  Result.Style.Stroke := NoColor;
+  Result.Style.Fill := 0;
+  Result.Style.FillTr := s.Style.StrokeTr;
+  if not ForeignGradient(xml, el, Result, gref, True, s) then FreeAndNil(Result);
+end;
+
+
 procedure SVGToDoc(const text: string; doc: TDoc; append: Boolean;
   dx, dy: Double; out newIds: TIntArray);
 var
@@ -1661,6 +1941,7 @@ var
   pendingArr: array of TDOMElement;
   firstNew: Integer;
   layersRead: Boolean;
+  gdepth: Integer;
 
   function MapId(oldId: Integer): Integer;
   var
@@ -1689,12 +1970,43 @@ var
     newIds[High(newIds)] := s.Id;
   end;
 
+  // the shapes from index n0 on (with the reference lines of their gradients) become one group, when there are at least two
+  procedure MakeGroup(n0: Integer);
+  var
+    i, cnt, gid: Integer;
+  begin
+    cnt := 0;
+    for i := n0 to doc.Shapes.Count - 1 do
+      if not doc.Shapes[i].IsRef then Inc(cnt);
+    if cnt < 2 then Exit;
+    gid := doc.NewGroupId;
+    for i := n0 to doc.Shapes.Count - 1 do
+      doc.Shapes[i].GroupId := gid;
+  end;
+
+  // the clip-path and the filter (drop shadow) of an element or group act on the shapes made from it, from index n0 on
+  procedure PostProcess(el: TDOMElement; n0: Integer);
+  var
+    clip: TShape;
+    sp: TShadowSpec;
+  begin
+    clip := ClipOf(xml, el);
+    if clip <> nil then
+    begin
+      ApplyClip(doc, n0, clip);
+      clip.Free;
+    end;
+    if FilterShadowOf(xml, el, sp) then ApplyShadow(doc, n0, sp);
+  end;
+
   procedure Walk(parent: TDOMNode; const base: TStyle);
   var
     n: TDOMNode;
     el: TDOMElement;
-    s, gref: TShape;
+    s, gref, ring, rgref: TShape;
     st: TStyle;
+    n0: Integer;
+    isLayer: Boolean;
   begin
     n := parent.FirstChild;
     while n <> nil do
@@ -1719,20 +2031,49 @@ var
         begin
           // a layer of ours is only a container: its opacity is kept in the metadata
           if Copy(A(el, 'id'), 1, 5) = 'layer' then st := base else st := ReadStyle(el, base);
+          n0 := doc.Shapes.Count;
+          isLayer := Copy(A(el, 'id'), 1, 5) = 'layer';
+          if not isLayer then Inc(gdepth);
           Walk(el, st);
+          PostProcess(el, n0);
+          if not isLayer then
+          begin
+            Dec(gdepth);
+            // a group of the file (the outermost one; the groups of TTPaint have a single level) is a group here too
+            if gdepth = 0 then MakeGroup(n0);
+          end;
         end
         else
         begin
           s := ReadForeignShape(el, base);
           if s <> nil then
           begin
-            // filled with a gradient of another program: the line or circle it runs along comes first
-            if ForeignGradient(xml, el, s, gref) then
+            n0 := doc.Shapes.Count;
+            ring := nil;
+            // a stroke painted with a gradient: the ring of the stroke is filled with it
+            if (Copy(Trim(StyleProp(el, 'stroke')), 1, 5) = 'url(#') and (s.Kind in [skEllipse, skRect]) then
             begin
-              AddRead(gref);
-              s.GradRef := -gref.Id;           // already a new id: not to be mapped below
+              ring := StrokeRing(xml, el, s, rgref);
+              s.Style.Stroke := NoColor;
+              if s.Style.Fill = NoColor then FreeAndNil(s);
             end;
-            AddRead(s);
+            if s <> nil then
+            begin
+              // filled with a gradient of another program: the line or circle it runs along comes first
+              if ForeignGradient(xml, el, s, gref) then
+              begin
+                AddRead(gref);
+                s.GradRef := -gref.Id;           // already a new id: not to be mapped below
+              end;
+              AddRead(s);
+            end;
+            if ring <> nil then
+            begin
+              AddRead(rgref);
+              ring.GradRef := -rgref.Id;
+              AddRead(ring);
+            end;
+            PostProcess(el, n0);
           end;
         end;
       end;
@@ -1921,6 +2262,7 @@ begin
     if append then
       for i := 0 to doc.Shapes.Count - 1 do
         if doc.Shapes[i].GroupId > groupBase then groupBase := doc.Shapes[i].GroupId;
+    gdepth := 0;
     Walk(root, base);
     // the groups of what was added get numbers of their own
     if append then

@@ -63,12 +63,6 @@
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="mainHelp"/>
       </Unit>
-      <Unit>
-        <Filename Value="about.pas"/>
-        <IsPartOfProject Value="True"/>
-        <HasResources Value="True"/>
-        <UnitName Value="About"/>
-      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

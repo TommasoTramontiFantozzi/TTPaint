@@ -183,6 +183,10 @@ type
     SelTol: Integer;
     SelU, SelV: Double;
     SelWand: Boolean;
+    ShOn: Boolean;                   // a drop shadow: the shape's own shape, moved by (ShDX, ShDY), blurred (ShBlur = standard deviation)
+    ShDX, ShDY, ShBlur: Double;
+    ShColor: Integer;
+    ShTr: Integer;                   // its transparency 0..255
     Soft: Integer;                   // soft edges of the stroke (0..100): the opacity fades from the axis to the edges
     // hatching of a fill (see HatchNames in TTFill)
     HatchPat: Integer;
@@ -1180,6 +1184,12 @@ begin
   Antialias := Src.Antialias;
   GradColor := Src.GradColor;
   GradTr := Src.GradTr;
+  ShOn := Src.ShOn;
+  ShDX := Src.ShDX;
+  ShDY := Src.ShDY;
+  ShBlur := Src.ShBlur;
+  ShColor := Src.ShColor;
+  ShTr := Src.ShTr;
   GradRef := Src.GradRef;
   GradRadial := Src.GradRadial;
   GradMid := Copy(Src.GradMid);
@@ -1325,6 +1335,7 @@ var
   cur, start, lastC: TPt;
   sub: TPtArray;
   lastCmd: Char;
+  lastQ: TPt;
   zEnd: Boolean;
   arcs: TArcSegs;
   ap: TPt;
@@ -1424,7 +1435,21 @@ begin
           zEnd := True;
           Flush;
         end;
-      'M', 'L', 'T':
+      'T':
+        while k + 1 < Length(nums) do
+        begin
+          e := MakePt(nums[k], nums[k + 1]);
+          if rel then begin e.x := e.x + cur.x; e.y := e.y + cur.y; end;
+          if lastCmd in ['Q', 'T'] then c1 := MakePt(2 * cur.x - lastQ.x, 2 * cur.y - lastQ.y) else c1 := cur;
+          if Length(sub) = 0 then AddPt(sub, cur.x, cur.y);
+          Bez(cur, MakePt(cur.x + 2 / 3 * (c1.x - cur.x), cur.y + 2 / 3 * (c1.y - cur.y)),
+            MakePt(e.x + 2 / 3 * (c1.x - e.x), e.y + 2 / 3 * (c1.y - e.y)), e);
+          lastQ := c1;
+          lastCmd := 'T';
+          cur := e;
+          Inc(k, 2);
+        end;
+      'M', 'L':
         while k + 1 < Length(nums) do
         begin
           e := MakePt(nums[k], nums[k + 1]);
@@ -1477,7 +1502,7 @@ begin
           else
           begin
             if k + 3 >= Length(nums) then Break;
-            c1 := MakePt(2 * cur.x - lastC.x, 2 * cur.y - lastC.y);
+            if lastCmd in ['C', 'S'] then c1 := MakePt(2 * cur.x - lastC.x, 2 * cur.y - lastC.y) else c1 := cur;
             c2 := MakePt(nums[k], nums[k + 1]);
             e := MakePt(nums[k + 2], nums[k + 3]);
             Inc(k, 4);
@@ -1490,6 +1515,7 @@ begin
           if Length(sub) = 0 then AddPt(sub, cur.x, cur.y);
           Bez(cur, c1, c2, e);
           lastC := c2;
+          lastCmd := cmd;
           cur := e;
         end;
       'Q':
@@ -1506,6 +1532,8 @@ begin
           if Length(sub) = 0 then AddPt(sub, cur.x, cur.y);
           Bez(cur, MakePt(cur.x + 2 / 3 * (c1.x - cur.x), cur.y + 2 / 3 * (c1.y - cur.y)),
             MakePt(e.x + 2 / 3 * (c1.x - e.x), e.y + 2 / 3 * (c1.y - e.y)), e);
+          lastQ := c1;
+          lastCmd := 'Q';
           cur := e;
         end;
       'A':
@@ -1536,14 +1564,15 @@ end;
 
 { ---------- editable paths ---------- }
 
-// the commands of a path as absolute M, L, C and Z (what ParsePath draws: arcs are their chord, T is a line)
+// the commands of a path as absolute M, L, C and Z (what ParsePath draws: arcs are their chord)
 function ParsePathNodes(const d: string): TPathNodes;
 var
   i, n, k, nxt, cnt: Integer;
   cmd: Char;
   rel, needM: Boolean;
   nums: array of Double;
-  cur, start, lastC, c1, c2, e, ap: TPt;
+  cur, start, lastC, lastQ, c1, c2, e, ap: TPt;
+  lastCmd: Char;
   arcs: TArcSegs;
   ai: Integer;
 
@@ -1607,6 +1636,7 @@ begin
   cur := MakePt(0, 0);
   start := cur;
   lastC := cur;
+  lastCmd := ' ';
   needM := True;
   while i <= n do
   begin
@@ -1634,7 +1664,20 @@ begin
           cur := start;
           needM := True;
         end;
-      'M', 'L', 'T':
+      'T':
+        while k + 1 < Length(nums) do
+        begin
+          e := Rel2(nums[k], nums[k + 1]);
+          if lastCmd in ['Q', 'T'] then c1 := MakePt(2 * cur.x - lastQ.x, 2 * cur.y - lastQ.y) else c1 := cur;
+          Need;
+          Put('C', MakePt(cur.x + 2 / 3 * (c1.x - cur.x), cur.y + 2 / 3 * (c1.y - cur.y)),
+            MakePt(e.x + 2 / 3 * (c1.x - e.x), e.y + 2 / 3 * (c1.y - e.y)), e, 3);
+          lastQ := c1;
+          lastCmd := 'T';
+          cur := e;
+          Inc(k, 2);
+        end;
+      'M', 'L':
         while k + 1 < Length(nums) do
         begin
           e := Rel2(nums[k], nums[k + 1]);
@@ -1684,7 +1727,7 @@ begin
           else
           begin
             if k + 3 >= Length(nums) then Break;
-            c1 := MakePt(2 * cur.x - lastC.x, 2 * cur.y - lastC.y);
+            if lastCmd in ['C', 'S'] then c1 := MakePt(2 * cur.x - lastC.x, 2 * cur.y - lastC.y) else c1 := cur;
             c2 := Rel2(nums[k], nums[k + 1]);
             e := Rel2(nums[k + 2], nums[k + 3]);
             Inc(k, 4);
@@ -1692,6 +1735,7 @@ begin
           Need;
           Put('C', c1, c2, e, 3);
           lastC := c2;
+          lastCmd := cmd;
           cur := e;
         end;
       'Q':
@@ -1703,6 +1747,8 @@ begin
           Need;
           Put('C', MakePt(cur.x + 2 / 3 * (c1.x - cur.x), cur.y + 2 / 3 * (c1.y - cur.y)),
             MakePt(e.x + 2 / 3 * (c1.x - e.x), e.y + 2 / 3 * (c1.y - e.y)), e, 3);
+          lastQ := c1;
+          lastCmd := 'Q';
           cur := e;
         end;
       'A':
@@ -1725,6 +1771,7 @@ begin
           Inc(k, 7);
         end;
     end;
+    lastCmd := cmd;
   end;
 end;
 

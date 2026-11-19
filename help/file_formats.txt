@@ -17,6 +17,20 @@ corner made by a fillet is just an arc. When the file is opened again in TTPaint
 everything is there as it was. The quotes are also written as ordinary graphics, so
 that the programs that only look at the picture can show them.
 
+SVG files made by other programs are read as far as TTPaint can draw them: figures, paths
+(all the commands, also the smooth curves T and S), linear and radial gradients, and also:
+- a stroke painted with a gradient becomes a ring of the same width, filled with that gradient
+  (circles, ellipses and rectangles);
+- a clip-path cuts the closed figures it holds (the parts outside the clip are removed);
+- a drop shadow (filter with feDropShadow) becomes a shadow of the figure, which is saved
+  with the drawing and is also written as a CSS drop-shadow for other programs. A group with a
+  shadow gives it to the figures that form its outline, not to the ones inside them;
+- a group (<g>) becomes a group: the outermost groups of the file are groups here too, with the
+  reference lines of their gradients inside, so that they move and resize as one object (the
+  groups of TTPaint have a single level: a group inside a group is part of the outer one);
+- a path made of several closed curves has holes where a curve lies inside another one, whatever
+  the direction in which the curves are written.
+
 A TTPaint file can be opened from the File menu. Pictures (PNG, BMP, JPG and WEBP)
 are opened as a raster image, and the same pictures can be inserted in the drawing
 that is open with File > Insert image from file.

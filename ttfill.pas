@@ -338,19 +338,57 @@ begin
   if not ok then Result := Copy(pts);
 end;
 
+// the signed area of a closed loop (the sign tells which way it goes round)
+function LoopArea(const p: TFPtArray): Double;
+var
+  i, n: Integer;
+begin
+  Result := 0;
+  n := Length(p);
+  for i := 0 to n - 1 do
+    Result := Result + p[i].x * p[(i + 1) mod n].y - p[(i + 1) mod n].x * p[i].y;
+  Result := Result / 2;
+end;
+
 function BridgeLoops(const loops: TFLoopArray): TFPtArray;
 var
   res, hp, work: TFPtArray;
-  i, j, k, m, r2, bridgeO, bridgeH: Integer;
-  dmin, dd: Double;
+  lps: TFLoopArray;
+  i, j, k, m, r2, bridgeO, bridgeH, big: Integer;
+  dmin, dd, aOuter, aHole: Double;
+  tmpL: TFLoop;
 begin
   SetLength(res, 0);
   if Length(loops) = 0 then Exit(res);
-  res := Copy(loops[0].Pts);
-  for i := 1 to High(loops) do
+  // the biggest loop is the outer one; the others are cut out of it, so they must go round the other way (a path written with
+  // all its loops in the same direction, as many programs do, still has holes)
+  lps := Copy(loops);
+  big := 0;
+  for i := 1 to High(lps) do
+    if Abs(LoopArea(lps[i].Pts)) > Abs(LoopArea(lps[big].Pts)) then big := i;
+  if big <> 0 then
   begin
-    hp := loops[i].Pts;
+    tmpL := lps[0];
+    lps[0] := lps[big];
+    lps[big] := tmpL;
+  end;
+  res := Copy(lps[0].Pts);
+  aOuter := LoopArea(res);
+  for i := 1 to High(lps) do
+  begin
+    hp := Copy(lps[i].Pts);
     if Length(hp) < 3 then Continue;
+    aHole := LoopArea(hp);
+    if aHole * aOuter > 0 then
+      for j := 0 to Length(hp) div 2 - 1 do
+      begin
+        dd := hp[j].x;
+        hp[j].x := hp[High(hp) - j].x;
+        hp[High(hp) - j].x := dd;
+        dd := hp[j].y;
+        hp[j].y := hp[High(hp) - j].y;
+        hp[High(hp) - j].y := dd;
+      end;
     dmin := 1e300;
     bridgeO := 0;
     bridgeH := 0;

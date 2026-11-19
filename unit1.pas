@@ -6,7 +6,7 @@ interface
 
 uses
   glib2, gtk2, gdk2,mainHelp,
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,About,
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,
   Math, Clipbrd, CheckLst, LCLIntf, LCLType, ComCtrls, Buttons, Menus, Types, Spin,
   IniFiles, base64, Printers, PrintersDlgs, IntfGraphics, FPImage, FPReadPNG, TTModel, TTSvg, TTPdf, TTVec, TTFill, TTGlyph, TTSnip, TTScript, TTMat, TTGL, GraphType, BGRABitmap, BGRABitmapTypes, libwebp;
 
@@ -37,6 +37,10 @@ type
   TSelSigMem = record            // what a selection of a picture was like then
     Id: Integer;
     Sig: QWord;
+  end;
+  TShadowCacheItem = record     // the blurred mask of the shadow of a shape, kept while the shape stays as it is
+    Key: QWord;
+    Big: array of Byte;
   end;
   TRunCacheItem = record        // a group of objects already drawn with opacity, kept while nothing that shows in it changes
     Key: QWord;
@@ -200,7 +204,6 @@ type
     procedure MenuItem16Click(Sender: TObject);
     procedure MenuHelpSnippets(Sender: TObject);
     procedure MenuHelpFilters(Sender: TObject);
-    procedure MenuItem19Click(Sender: TObject);
     procedure PaintBox1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure PaintBox1MouseLeave(Sender: TObject);
@@ -224,6 +227,7 @@ type
     SideSplit: TSplitter;
     ObjTree: TTreeView;
     ObjSig: string;                   // what the tree was built from
+    ObjCollapseAll: Boolean;          // a file was just loaded: the layers are open and the groups closed
     ObjSeenGroups: TStringList;       // the groups the tree has shown (a named group is collapsed the first time)
     ObjTags: TList;
     ObjSync, ObjClickCheck: Boolean;
@@ -280,6 +284,9 @@ type
     FltButtons: array of TSpeedButton;
     FltCache: array of TFltCacheItem;
     RunCache: array of TRunCacheItem;
+    ShCache: array of TShadowCacheItem;
+    SigPrev: array of QWord;         // the signature of each object at the last picture of a drag (what moved is what changed)
+    SigPrevIds: array of Integer;
     CovList: array of TCovItem;
     CovOn: Boolean;
     FastImgs: array of TFastImg;
@@ -461,6 +468,7 @@ type
     RotPickRef: TRef;
     SelEditId: Integer;             // the selection of pixels whose outline is being edited by hand (its points are shown)
     RotIds: TIntArray;
+    RotAllIds: TIntArray;            // RotIds and the reference objects of the selection (they are turned and stretched too, but do not count for the box)
     RotImgs: array of TRotImg;      // the pictures of the selection as they were before they were manipulated (skews start from them)
     RotCX, RotCY, RotHW, RotHH: Double;   // the centre and the half sizes of the box when the mode began
     RotTotal, RotAng0, RotBase: Double;   // the angle turned so far, and at the start of this drag
@@ -609,6 +617,7 @@ type
     function ScreenPt(const p: TPt): TPoint;
     procedure ApplyPen(cnv: TCanvas; const st: TStyle; z: Double);
     procedure RenderShape(cnv: TCanvas; s: TShape; z: Double; editView: Boolean);
+    procedure BlendShadow(cnv: TCanvas; s: TShape; z: Double);
     procedure RenderShapeCore(cnv: TCanvas; s: TShape; st0: TStyle; z: Double; editView: Boolean; part: Integer);
     function ShapeScreenBox(s: TShape; z: Double): TRect;
     procedure BlendMask(cnv: TCanvas; const bb: TRect; col: TColor; alpha: Integer; const cov: TByteDyn);
@@ -622,6 +631,7 @@ type
     procedure BlendMaterial(cnv: TCanvas; s: TShape; z: Double; part, tr, k: Integer);
     procedure RenderDocBmp(bmp: TBitmap; z: Double; editView: Boolean);
     function DocStamp: QWord;
+    function ShapeSig(s: TShape): QWord;
     function RenderRunCached(const ord: TShapeArray; i0, i1: Integer; w, h: Integer; z: Double; editView, quotes: Boolean; stamp: QWord; ox: Integer = 0; oy: Integer = 0): TBGRABitmap;
     procedure RenderDoc(cnv: TCanvas; z: Double; editView: Boolean);
     procedure ApplyFilterLayer(acc: TBGRABitmap; l: TLayer; z: Double; ox: Integer = 0; oy: Integer = 0);
@@ -4606,12 +4616,17 @@ var
 begin
   ts := SelShapes;
   SetLength(RotIds, 0);
+  SetLength(RotAllIds, 0);
   for i := 0 to High(ts) do
+  begin
+    SetLength(RotAllIds, Length(RotAllIds) + 1);
+    RotAllIds[High(RotAllIds)] := ts[i].Id;
     if not ts[i].IsRef then
     begin
       SetLength(RotIds, Length(RotIds) + 1);
       RotIds[High(RotIds)] := ts[i].Id;
     end;
+  end;
   if Length(RotIds) = 0 then Exit;
   // a line alone has only its two points to edit: resizing, turning and skewing make little sense for it
   if (Length(ts) = 1) and (ts[0].Kind = skLine) and (ts[0].GroupId = 0) then
@@ -6110,29 +6125,41 @@ end;
 procedure TForm1.RenderFast(cnv: TCanvas; pw, ph: Integer);
 var
   fb: TBGRABitmap;
-  i, nextL: Integer;
+  i, k, nextL, haloAt: Integer;
   ord: TShapeArray;
 begin
   fb := TBGRABitmap.Create(pw, ph, BGRAWhite);
   try
     ord := Doc.DrawOrder;
     nextL := 0;
-    // the halos of the selection first, under everything (over the page, under the objects)
+    // the halos of the selection are drawn just before the lowest selected object (under the selection, over what is below it)
+    haloAt := -1;
     if (Length(Sel) > 0) and HaloPreOK then
     begin
-      FastHaloOnly := True;
-      try
-        for i := 0 to High(ord) do
-          if not (ord[i].IsRef and not Doc.ShapeVisible(ord[i])) then FastShape(fb, ord[i], Zoom);
-      finally
-        FastHaloOnly := False;
-      end;
-      SelHaloPre := True;
+      for i := 0 to High(ord) do
+        if IsSelShape(ord[i]) and not (ord[i].IsRef and not Doc.ShapeVisible(ord[i])) then
+        begin
+          haloAt := i;
+          Break;
+        end;
+      if haloAt >= 0 then SelHaloPre := True;
     end;
     try
     for i := 0 to High(ord) do
     begin
       if ord[i].IsRef and not Doc.ShapeVisible(ord[i]) then Continue;
+      if i = haloAt then
+      begin
+        FastHaloOnly := True;
+        SelHaloPre := False;
+        try
+          for k := 0 to High(ord) do
+            if not (ord[k].IsRef and not Doc.ShapeVisible(ord[k])) then FastShape(fb, ord[k], Zoom);
+        finally
+          FastHaloOnly := False;
+          SelHaloPre := True;
+        end;
+      end;
       // the background of a layer is under the objects of the layer: it is laid when its turn comes
       FastLayerBgs(fb, nextL, BgLayerIdx(ord[i]), pw, ph);
       FastShape(fb, ord[i], Zoom);
@@ -6748,11 +6775,106 @@ begin
   end;
 end;
 
+// the drop shadow of a shape: its coverage (fill and stroke) blurred, moved and drawn under the shape in the shadow colour
+function HashBytes(p: Pointer; n: Integer; h: QWord): QWord; forward;
+
+procedure TForm1.BlendShadow(cnv: TCanvas; s: TShape; z: Double);
+var
+  bb0, bbS, cl: TRect;
+  cov0, cov3, big, crop: TByteDyn;
+  w0, h0, w, h, mg, r, x, y, dxp, dyp, alpha, sum, ci, tot: Integer;
+  key: QWord;
+  txt: string;
+  it: TShadowCacheItem;
+begin
+  bb0 := ShapeScreenBox(s, z);
+  w0 := bb0.Right - bb0.Left;
+  h0 := bb0.Bottom - bb0.Top;
+  if (w0 <= 0) or (h0 <= 0) then Exit;
+  r := Max(0, Round(s.ShBlur * z));
+  mg := 3 * r + 2;
+  dxp := Round(s.ShDX * z);
+  dyp := Round(s.ShDY * z);
+  w := w0 + 2 * mg;
+  h := h0 + 2 * mg;
+  // the blurred shape is kept while the shape, the zoom and the place stay the same (a shape that does not move casts the same
+  // shadow at every picture of a drag)
+  txt := ShapeToSVG(s);
+  key := HashBytes(PChar(txt), Length(txt), 14695981039346656037);
+  key := HashBytes(@z, SizeOf(z), key);
+  key := HashBytes(@bb0, SizeOf(bb0), key);
+  key := HashBytes(@r, SizeOf(r), key);
+  big := nil;
+  for ci := 0 to High(ShCache) do
+    if ShCache[ci].Key = key then
+    begin
+      big := ShCache[ci].Big;
+      it := ShCache[ci];
+      Delete(ShCache, ci, 1);
+      SetLength(ShCache, Length(ShCache) + 1);
+      ShCache[High(ShCache)] := it;
+      Break;
+    end;
+  if big = nil then
+  begin
+    SetLength(cov0, w0 * h0);
+    FillChar(cov0[0], Length(cov0), 0);
+    if (s.Style.Fill <> NoColor) or s.GradOn then
+    begin
+      cov3 := PartCoverage(s, z, 2, 1, bb0);
+      if Length(cov3) >= w0 * h0 then Move(cov3[0], cov0[0], w0 * h0);
+    end;
+    if (s.Style.Stroke <> NoColor) and not s.Spray then
+    begin
+      cov3 := PartCoverage(s, z, 3, 1, bb0);
+      if Length(cov3) >= w0 * h0 then
+        for x := 0 to w0 * h0 - 1 do
+          if cov3[x] > cov0[x] then cov0[x] := cov3[x];
+    end;
+    SetLength(big, w * h);
+    FillChar(big[0], Length(big), 0);
+    for y := 0 to h0 - 1 do
+      Move(cov0[y * w0], big[(y + mg) * w + mg], w0);
+    if r > 0 then BlurCoverage(big, w, h, r);
+    // a short list, the oldest out first, and not more than some tens of megabytes
+    tot := Length(big);
+    for ci := 0 to High(ShCache) do Inc(tot, Length(ShCache[ci].Big));
+    while (Length(ShCache) > 0) and ((Length(ShCache) >= 24) or (tot > 64000000)) do
+    begin
+      Dec(tot, Length(ShCache[0].Big));
+      Delete(ShCache, 0, 1);
+    end;
+    SetLength(ShCache, Length(ShCache) + 1);
+    ShCache[High(ShCache)].Key := key;
+    ShCache[High(ShCache)].Big := big;
+  end;
+  bbS := Rect(bb0.Left - mg + dxp, bb0.Top - mg + dyp, bb0.Right + mg + dxp, bb0.Bottom + mg + dyp);
+  cl := Rect(Max(bbS.Left, AlphaX0), Max(bbS.Top, AlphaY0), Min(bbS.Right, AlphaX0 + AlphaW), Min(bbS.Bottom, AlphaY0 + AlphaH));
+  if (cl.Right <= cl.Left) or (cl.Bottom <= cl.Top) then Exit;
+  SetLength(crop, (cl.Right - cl.Left) * (cl.Bottom - cl.Top));
+  for y := cl.Top to cl.Bottom - 1 do
+    Move(big[(y - bbS.Top) * w + (cl.Left - bbS.Left)], crop[(y - cl.Top) * (cl.Right - cl.Left)], cl.Right - cl.Left);
+  // the transparency of the shape itself shows in its shadow
+  if (s.Style.Fill <> NoColor) or s.GradOn then alpha := 255 - Doc.EffectiveTr(s, True) else alpha := 255 - Doc.EffectiveTr(s, False);
+  // a gradient that fades out casts a fainter shadow: the mean of its stops
+  if s.GradOn and (s.Style.Fill <> NoColor) then
+  begin
+    sum := (255 - s.Style.FillTr) + (255 - s.GradTr);
+    for x := 0 to High(s.GradMid) do Inc(sum, 255 - s.GradMid[x].Tr);
+    alpha := Round(alpha * (sum / (2 + Length(s.GradMid))) / 255);
+  end;
+  alpha := Round(alpha * (255 - s.ShTr) / 255);
+  BlendMask(cnv, cl, ToCol(s.ShColor), alpha, crop);
+end;
+
 procedure TForm1.RenderShape(cnv: TCanvas; s: TShape; z: Double; editView: Boolean);
 var
   trS, trF, smp: Integer;
   grad, smooth, matS, matF: Boolean;
 begin
+  if s.ShOn and AlphaOK and not (s.Kind in [skText, skImage]) and not (editView and s.IsRef) and (s.Style.Fill <> NoColor) or
+     (s.ShOn and AlphaOK and not (s.Kind in [skText, skImage]) and (s.Style.Stroke <> NoColor) and not (editView and s.IsRef)) then
+    BlendShadow(cnv, s, z);
   matF := AlphaOK and (FillMaterial(s.Style) > 0) and (s.Style.Fill <> NoColor) and not (s.Kind in [skText, skImage]) and
           not (editView and s.IsRef);
   matS := AlphaOK and (StrokeMaterial(s.Style) > 0) and (s.Style.Stroke <> NoColor) and not (s.Kind in [skText, skImage]) and
@@ -7393,6 +7515,50 @@ begin
   Result := HashBytes(@HighlightCons, SizeOf(HighlightCons), Result);
 end;
 
+// what a shape looks like, as a number: it changes when the shape (or what its gradient or its fill depends on) changes
+function TForm1.ShapeSig(s: TShape): QWord;
+var
+  q: QWord;
+  txt: string;
+  k: Integer;
+  r: TShape;
+begin
+  if s.Kind = skImage then
+  begin
+    Result := HashBytes(@s.Rot, SizeOf(s.Rot), 14695981039346656037);
+    for k := 0 to High(s.P) do Result := HashBytes(@s.P[k], SizeOf(TPt), Result);
+    k := Length(s.ImageData);
+    Result := HashBytes(@k, SizeOf(k), Result);
+    Result := HashBytes(@s.Cache, SizeOf(s.Cache), Result);
+    Result := HashBytes(@s.Style.Width, SizeOf(s.Style.Width), Result);
+    Result := HashBytes(@s.Style.FillTr, SizeOf(s.Style.FillTr), Result);
+    Result := HashBytes(@s.Style.StrokeTr, SizeOf(s.Style.StrokeTr), Result);
+  end
+  else
+  begin
+    txt := ShapeToSVG(s);
+    Result := HashBytes(PChar(txt), Length(txt), 14695981039346656037);
+  end;
+  if s.GradRef > 0 then
+  begin
+    r := Doc.FindShape(s.GradRef);
+    if r <> nil then
+    begin
+      q := ShapeSig(r);
+      Result := HashBytes(@q, SizeOf(q), Result);
+    end;
+  end;
+  for k := 0 to High(s.BucketIds) do
+  begin
+    r := Doc.FindShape(s.BucketIds[k]);
+    if r <> nil then
+    begin
+      q := ShapeSig(r);
+      Result := HashBytes(@q, SizeOf(q), Result);
+    end;
+  end;
+end;
+
 // the same, from the cache when the stamp, the range, the size and the zoom are the same as last time (the bitmap belongs
 // to the cache: not to be freed)
 function TForm1.RenderRunCached(const ord: TShapeArray; i0, i1: Integer; w, h: Integer; z: Double; editView, quotes: Boolean; stamp: QWord; ox, oy: Integer): TBGRABitmap;
@@ -7567,22 +7733,110 @@ end;
 
 procedure TForm1.RenderDocDirect(cnv: TCanvas; z: Double; editView: Boolean);
 var
-  i, nextL: Integer;
+  i, nextL, n, lo, hi, w, h, ox, oy, k: Integer;
   ord: TShapeArray;
+  sig: array of QWord;
+  ids: array of Integer;
+  same, noBg, split: Boolean;
+  stamp: QWord;
+  run: TBGRABitmap;
+  haloAt: Integer;
 begin
   Doc.UpdateFillets;
   // layer by layer from the bottom; hidden layers are not drawn
   ord := Doc.DrawOrder;
   nextL := 0;
-  // the halos of the selection first, under all the objects
+  // the halos of the selection are drawn just before the lowest selected object: under the selection, over what is below it
+  // (under all the objects they would be hidden by every opaque object that is drawn after them)
+  haloAt := -1;
   if editView and (Length(Sel) > 0) and HaloPreOK then
   begin
-    DrawSelHalos(cnv, ord, 0, High(ord), z);
-    SelHaloPre := True;
+    for i := 0 to High(ord) do
+      if IsSelShape(ord[i]) and not (ord[i].IsRef and not Doc.ShapeVisible(ord[i])) then
+      begin
+        haloAt := i;
+        Break;
+      end;
+    if haloAt >= 0 then SelHaloPre := True;
+  end;
+  // while something is dragged, what is under the objects that change and what is over them is the same at every picture: it is
+  // drawn once (with its transparency) and laid again; only the objects that change are drawn each time
+  n := Length(ord);
+  lo := 0;
+  hi := n - 1;
+  split := False;
+  noBg := True;
+  for k := 0 to Doc.Layers.Count - 1 do
+    if Doc.Layers[k].IsFilter or (Doc.Layers[k].Bg <> NoColor) then noBg := False;
+  if FastMode and AlphaOK and editView and noBg and (n >= 4) and (Creating = nil) then
+  begin
+    SetLength(sig, n);
+    SetLength(ids, n);
+    for i := 0 to n - 1 do
+    begin
+      sig[i] := ShapeSig(ord[i]);
+      if ord[i].IsRef and not Doc.ShapeVisible(ord[i]) then sig[i] := sig[i] xor 7;
+      ids[i] := ord[i].Id;
+    end;
+    same := (Length(SigPrev) = n);
+    if same then
+      for i := 0 to n - 1 do
+        if SigPrevIds[i] <> ids[i] then
+        begin
+          same := False;
+          Break;
+        end;
+    if same then
+    begin
+      lo := n;
+      hi := -1;
+      for i := 0 to n - 1 do
+        if sig[i] <> SigPrev[i] then
+        begin
+          if lo = n then lo := i;
+          hi := i;
+        end;
+      if lo = n then hi := n - 1;   // nothing changed: all of it is kept
+      split := (lo > 0) or (hi < n - 1);
+    end;
+    SigPrev := sig;
+    SigPrevIds := ids;
+  end
+  else
+  begin
+    SetLength(SigPrev, 0);
+    SetLength(SigPrevIds, 0);
+  end;
+  if split then
+  begin
+    ox := AlphaX0;
+    oy := AlphaY0;
+    w := Min(AlphaW, Round(Doc.Width * z) - ox);
+    h := Min(AlphaH, Round(Doc.Height * z) - oy);
+    if (w <= 0) or (h <= 0) then split := False;
+  end;
+  if split then
+  begin
+    SetLength(CovList, 0);
+    CovBytes := 0;
+    CovStamp := 0;
+    if lo > 0 then
+    begin
+      stamp := 14695981039346656037;
+      for i := 0 to lo - 1 do stamp := HashBytes(@sig[i], SizeOf(QWord), stamp);
+      run := RenderRunCached(ord, 0, lo - 1, w, h, z, editView, False, stamp, ox, oy);
+      run.Draw(cnv, ox, oy, False);
+    end;
   end;
   try
-    for i := 0 to High(ord) do
+    for i := lo to hi do
     begin
+      if (haloAt >= 0) and (i = Max(haloAt, lo)) then
+      begin
+        SelHaloPre := False;
+        DrawSelHalos(cnv, ord, 0, High(ord), z);
+        SelHaloPre := True;
+      end;
       DrawLayerBgs(cnv, z, nextL, BgLayerIdx(ord[i]));
       if ord[i].IsRef and (not editView or not Doc.ShapeVisible(ord[i])) then Continue;
       RenderShape(cnv, ord[i], z, editView);
@@ -7592,7 +7846,14 @@ begin
   finally
     SelHaloPre := False;
   end;
-  DrawLayerBgs(cnv, z, nextL, Doc.Layers.Count - 1);
+  if split and (hi < n - 1) then
+  begin
+    stamp := 1469598103934665603;
+    for i := hi + 1 to n - 1 do stamp := HashBytes(@sig[i], SizeOf(QWord), stamp);
+    run := RenderRunCached(ord, hi + 1, n - 1, w, h, z, editView, False, stamp, ox, oy);
+    run.Draw(cnv, ox, oy, False);
+  end;
+  if not split then DrawLayerBgs(cnv, z, nextL, Doc.Layers.Count - 1);
   if not editView then
     for i := 0 to Doc.Cons.Count - 1 do
       if Doc.Cons[i].IsQuote and not Doc.Cons[i].NoPrint then DrawQuote(cnv, Doc.Cons[i], z, True);
@@ -9949,9 +10210,11 @@ begin
     begin
       nd := ObjTree.Items[i];
       t := TObjTag(nd.Data);
-      if t.Kind = 0 then nd.Expanded := collapsed.IndexOf('L' + IntToStr(t.Layer.Id)) < 0
+      if t.Kind = 0 then nd.Expanded := ObjCollapseAll or (collapsed.IndexOf('L' + IntToStr(t.Layer.Id)) < 0)
+      else if ObjCollapseAll then nd.Expanded := False
       else if t.Kind = 1 then nd.Expanded := collapsed.IndexOf('G' + IntToStr(t.GroupId)) < 0;
     end;
+    ObjCollapseAll := False;
     // a group that no longer exists is forgotten: a new one may take its number and name (a snippet deleted and made again)
     for i := ObjSeenGroups.Count - 1 downto 0 do
       if present.IndexOf(ObjSeenGroups[i]) < 0 then ObjSeenGroups.Delete(i);
@@ -17596,7 +17859,7 @@ begin
         a := a - RotTotal;
         if Abs(a) > 1e-9 then
         begin
-          Doc.RotateShapes(RotIds, RotCX, RotCY, a, i, j, n);
+          Doc.RotateShapes(RotAllIds, RotCX, RotCY, a, i, j, n);
           RotTotal := RotTotal + a;
           Moved := True;
           SetStatus('Rotation: ' + IntToStr(Round(RotTotal * 180 / Pi)) + ' degrees.');
@@ -17606,7 +17869,7 @@ begin
       begin
         // the selection is brought back to the upright frame of its box, deformed, and turned again
         if (RotDrag mod 2 = 1) and (Length(RotImgs) > 0) then RotRestoreImages;
-        Doc.RotateShapes(RotIds, 0, 0, -RotTotal, i, j, n);
+        Doc.RotateShapes(RotAllIds, 0, 0, -RotTotal, i, j, n);
         pv0 := TurnPt(MakePt(px, py), MakePt(0, 0), -RotTotal);
         if RotDrag mod 2 = 0 then
         begin
@@ -17616,7 +17879,7 @@ begin
           if Abs(RotHy - RotAy) > 1e-6 then gsy := Max(0.02, (pv0.y - RotAy) / (RotHy - RotAy));
           if ssShift in Shift then
             if Abs(gsx - 1) >= Abs(gsy - 1) then gsy := gsx else gsx := gsy;
-          Doc.StretchShapes(RotIds, RotAx, RotAy, gsx / RotSx, gsy / RotSy, True);
+          Doc.StretchShapes(RotAllIds, RotAx, RotAy, gsx / RotSx, gsy / RotSy, True);
           for i := 0 to High(RotImgs) do
           begin
             // what is stretched afterwards stays stretched when the skew changes
@@ -17634,7 +17897,7 @@ begin
           begin
             a := (pv0.x - RotHx) / (RotHy - RotAy);
             if Abs(a) < 0.004 then a := 0;
-            Doc.SkewShapes(RotIds, RotAx, RotAy, a - RotKx, 0);
+            Doc.SkewShapes(RotAllIds, RotAx, RotAy, a - RotKx, 0);
             for i := 0 to High(RotImgs) do
               if Doc.FindShape(RotImgs[i].Id) <> nil then SkewImage(RotImgs[i], Doc.FindShape(RotImgs[i].Id), RotAx, RotAy, a, 0);
             RotKx := a;
@@ -17647,14 +17910,14 @@ begin
           begin
             a := (pv0.y - RotHy) / (RotHx - RotAx);
             if Abs(a) < 0.004 then a := 0;
-            Doc.SkewShapes(RotIds, RotAx, RotAy, 0, a - RotKy);
+            Doc.SkewShapes(RotAllIds, RotAx, RotAy, 0, a - RotKy);
             for i := 0 to High(RotImgs) do
               if Doc.FindShape(RotImgs[i].Id) <> nil then SkewImage(RotImgs[i], Doc.FindShape(RotImgs[i].Id), RotAx, RotAy, 0, a);
             RotKy := a;
             SetStatus('Skew: ' + IntToStr(Round(ArcTan(a) * 180 / Pi)) + ' degrees.');
           end;
         end;
-        Doc.RotateShapes(RotIds, 0, 0, RotTotal, i, j, n);
+        Doc.RotateShapes(RotAllIds, 0, 0, RotTotal, i, j, n);
         GroupFrame(RotIds, RotTotal, RotCX, RotCY, RotHW, RotHH);
         Moved := True;
       end;
@@ -18550,13 +18813,6 @@ end;
 procedure TForm1.MenuHelpFilters(Sender: TObject);
 begin
   Form2.ShowTopic('Filters Language');
-end;
-
-procedure TForm1.MenuItem19Click(Sender: TObject);
-begin
-  form3.Left:=trunc(form1.Left+form1.Width/2-form3.Width/2);
-  form3.top:=trunc(form1.top+form1.height/2-form3.height/2);
-  form3.show;
 end;
 
 { ================= constraints ================= }
@@ -23187,6 +23443,7 @@ begin
     try
       FlushAllImageCaches;
       SVGToDoc(sl.Text, Doc, False, 0, 0, ids);
+      ObjCollapseAll := True;
       RefreshLayers;
     except
       on E: Exception do
